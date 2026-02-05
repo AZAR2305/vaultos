@@ -1,3 +1,18 @@
+interface Trade {
+    sessionId: string;
+    marketId: string;
+    shares: number;
+    type: string;
+    cost?: number;
+    revenue?: number;
+}
+
+interface UserPosition {
+    marketId: string;
+    yesShares: number;
+    noShares: number;
+}
+
 export class TradeService {
     private sessions: Map<string, any>;
     private markets: Map<string, any>;
@@ -12,6 +27,11 @@ export class TradeService {
         return this.markets.get(marketId);
     }
 
+    // Helper to get session by ID
+    private getSession(sessionId: string) {
+        return this.sessions.get(sessionId);
+    }
+
     // Register a market
     registerMarket(marketId: string, marketData: any) {
         this.markets.set(marketId, marketData);
@@ -23,8 +43,8 @@ export class TradeService {
     }
 
     async buyYesShares(sessionId: string, marketId: string, shares: number): Promise<Trade> {
-        const session = await this.sessionService.getSession(sessionId);
-        const market = await this.marketService.getMarket(marketId);
+        const session = this.getSession(sessionId);
+        const market = this.getMarket(marketId);
 
         if (!session || !market) {
             throw new Error('Invalid session or market');
@@ -36,21 +56,26 @@ export class TradeService {
         }
 
         session.activeBalance -= cost;
-        session.positions.push(new UserPosition(marketId, shares, 0));
-        await this.sessionService.updateSession(session);
+        
+        const position = session.positions.find((pos: UserPosition) => pos.marketId === marketId);
+        if (position) {
+            position.yesShares += shares;
+        } else {
+            session.positions.push({ marketId, yesShares: shares, noShares: 0 });
+        }
 
         return { sessionId, marketId, shares, type: 'buy-yes', cost };
     }
 
     async sellYesShares(sessionId: string, marketId: string, shares: number): Promise<Trade> {
-        const session = await this.sessionService.getSession(sessionId);
-        const market = await this.marketService.getMarket(marketId);
+        const session = this.getSession(sessionId);
+        const market = this.getMarket(marketId);
 
         if (!session || !market) {
             throw new Error('Invalid session or market');
         }
 
-        const position = session.positions.find(pos => pos.marketId === marketId);
+        const position = session.positions.find((pos: UserPosition) => pos.marketId === marketId);
         if (!position || position.yesShares < shares) {
             throw new Error('Insufficient YES shares to sell');
         }
@@ -58,13 +83,13 @@ export class TradeService {
         const revenue = shares * market.yesPrice;
         position.yesShares -= shares;
         session.activeBalance += revenue;
-        await this.sessionService.updateSession(session);
+
         return { sessionId, marketId, shares, type: 'sell-yes', revenue };
     }
 
     async buyNoShares(sessionId: string, marketId: string, shares: number): Promise<Trade> {
-        const session = await this.sessionService.getSession(sessionId);
-        const market = await this.marketService.getMarket(marketId);
+        const session = this.getSession(sessionId);
+        const market = this.getMarket(marketId);
 
         if (!session || !market) {
             throw new Error('Invalid session or market');
@@ -76,12 +101,13 @@ export class TradeService {
         }
 
         session.activeBalance -= cost;
-        const position = session.positions.find(pos => pos.marketId === marketId) || new UserPosition(marketId, 0, 0);
-        position.noShares += shares;
-        if (!session.positions.includes(position)) {
-            session.positions.push(position);
+        const position = session.positions.find((pos: UserPosition) => pos.marketId === marketId);
+        
+        if (position) {
+            position.noShares += shares;
+        } else {
+            session.positions.push({ marketId, yesShares: 0, noShares: shares });
         }
-        await this.sessionService.updateSession(session);
 
         return { sessionId, marketId, shares, type: 'buy-no', cost };
     }

@@ -6,34 +6,45 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "dev:client": "vite",
+    "dev:server": "tsx watch src/index.ts",
     "build": "tsc && vite build",
     "start": "node dist/index.js",
     "preview": "vite preview",
-    "test": "echo \"Phase 1: Yellow integration MVP\""
+    "test": "tsx scripts/test-yellow.ts",
+    "test:yellow": "tsx scripts/test-yellow.ts",
+    "faucet": "curl -XPOST https://clearnet-sandbox.yellow.com/faucet/requestTokens -H 'Content-Type: application/json' -d '{\"userAddress\":\"YOUR_ADDRESS_HERE\"}'",
+    "yellow:docs": "echo 'Yellow Network Docs: https://docs.yellow.org' && start https://docs.yellow.org"
   },
-  "keywords": ["prediction-market", "yellow-network", "state-channels", "web3"],
+  "keywords": [
+    "prediction-market",
+    "yellow-network",
+    "state-channels",
+    "web3"
+  ],
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "express": "^4.18.2",
-    "ethers": "^6.10.0",
-    "dotenv": "^16.4.1",
+    "@erc7824/nitrolite": "^0.5.3",
+    "@tanstack/react-query": "^5.17.0",
     "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "ethers": "^6.10.0",
+    "express": "^4.18.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "viem": "^2.7.0",
+    "viem": "^2.45.1",
     "wagmi": "^2.5.0",
-    "@tanstack/react-query": "^5.17.0"
+    "ws": "^8.19.0"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/node": "^20.11.5",
-    "@types/cors": "^2.8.17",
     "@types/react": "^18.2.48",
     "@types/react-dom": "^18.2.18",
     "@vitejs/plugin-react": "^4.2.1",
-    "vite": "^5.0.11",
     "tsx": "^4.7.0",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "vite": "^5.0.11"
   }
 }

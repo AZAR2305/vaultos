@@ -90,7 +90,7 @@ export class YellowClient {
    * @param allowance - Maximum spending allowance for this session
    */
   async openChannel(
-    userWallet: Wallet,
+    userWallet: Wallet | HDNodeWallet,
     depositAmount: bigint,
     allowance: bigint
   ): Promise<ChannelState> {
@@ -141,7 +141,7 @@ export class YellowClient {
    */
   async sendStateUpdate(
     channel: ChannelState,
-    userWallet: Wallet,
+    userWallet: Wallet | HDNodeWallet,
     newBalance: bigint
   ): Promise<boolean> {
     channel.nonce++;
@@ -177,7 +177,7 @@ export class YellowClient {
    * Phase 1 (current): Simulate settlement
    * Phase 2 (Sui): Actual on-chain settlement using Sui's parallel execution
    */
-  async closeChannel(channel: ChannelState, userWallet: Wallet): Promise<bigint> {
+  async closeChannel(channel: ChannelState, userWallet: Wallet | HDNodeWallet): Promise<bigint> {
     if (!channel.isOpen) {
       throw new Error('Channel already closed');
     }
@@ -243,7 +243,7 @@ export class YellowClient {
    */
   async depositToChannel(
     channel: ChannelState,
-    userWallet: Wallet,
+    userWallet: Wallet | HDNodeWallet,
     depositAmount: bigint
   ): Promise<boolean> {
     if (!channel.isOpen) {
@@ -274,7 +274,7 @@ export class YellowClient {
    */
   async withdrawFromChannel(
     channel: ChannelState,
-    userWallet: Wallet,
+    userWallet: Wallet | HDNodeWallet,
     withdrawAmount: bigint
   ): Promise<boolean> {
     if (!channel.isOpen) {

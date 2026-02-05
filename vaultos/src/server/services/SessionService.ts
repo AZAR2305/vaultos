@@ -1,6 +1,6 @@
-import { YellowClient } from '../../../src/yellow/client';
-import { SessionManager, SessionConfig } from '../../../src/yellow/session';
-import { StateManager } from '../../../src/yellow/state';
+import { YellowClient } from '../../../../src/yellow/client';
+import { SessionManager, SessionConfig } from '../../../../src/yellow/session';
+import { StateManager } from '../../../../src/yellow/state';
 
 interface SessionData {
   sessionId: string;
