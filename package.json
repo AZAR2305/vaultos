@@ -12,7 +12,8 @@
     "preview": "vite preview",
     "test": "tsx scripts/test-yellow.ts",
     "test:yellow": "tsx scripts/test-yellow.ts",
-    "faucet": "curl -XPOST https://clearnet-sandbox.yellow.com/faucet/requestTokens -H 'Content-Type: application/json' -d '{\"userAddress\":\"YOUR_ADDRESS_HERE\"}'",
+    "test:channel": "tsx scripts/test-channel-manager.ts",
+    "test:market": "tsx scripts/test-market-service.ts",
     "yellow:docs": "echo 'Yellow Network Docs: https://docs.yellow.org' && start https://docs.yellow.org"
   },
   "keywords": [
