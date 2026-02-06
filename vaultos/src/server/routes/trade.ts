@@ -1,18 +1,31 @@
 import { Router } from 'express';
 import { SessionService } from '../services/SessionService';
-import { MarketService } from '../services/MarketService';
+import MarketService from '../services/MarketService';
 
 const router = Router();
 const sessionService = new SessionService();
-const marketService = new MarketService();
 
-// Buy YES shares
-router.post('/buy-yes', async (req, res) => {
-    const { sessionId, marketId, shares } = req.body;
+/**
+ * AUTHORITATIVE TRADE API
+ * Frontend sends INTENT only → Backend calculates everything
+ * 
+ * OLD (INSECURE):
+ * POST { marketId, yesPool: 1000, noPool: 800, userAmount: 100 }
+ * 
+ * NEW (SECURE):
+ * POST { marketId, outcome: 1, amount: 100, maxSlippage: 0.05 }
+ */
+
+// Execute trade (unified endpoint for all outcomes)
+router.post('/execute', async (req, res) => {
+    const { sessionId, marketId, outcome, amount, maxSlippage = 0.05 } = req.body;
     
     try {
-        if (!sessionId || !marketId || !shares) {
-            return res.status(400).json({ error: 'Missing required fields: sessionId, marketId, shares' });
+        // Validation
+        if (!sessionId || !marketId || outcome === undefined || !amount) {
+            return res.status(400).json({ 
+                error: 'Missing required fields: sessionId, marketId, outcome, amount' 
+            });
         }
 
         // Get session
@@ -21,141 +34,138 @@ router.post('/buy-yes', async (req, res) => {
             return res.status(404).json({ error: 'Session not found' });
         }
 
-        // Get market
-        const market = marketService.getMarket(marketId);
-        if (!market) {
-            return res.status(404).json({ error: 'Market not found' });
-        }
-
-        // Calculate cost (simplified - would use AMM formula in production)
-        const cost = parseFloat(shares);
+        // Check balance
         const currentBalance = parseFloat(session.depositAmount) - parseFloat(session.spentAmount);
-
-        if (cost > currentBalance) {
-            return res.status(400).json({ error: 'Insufficient balance' });
+        if (amount > currentBalance) {
+            return res.status(400).json({ 
+                error: 'Insufficient balance',
+                balance: currentBalance,
+                required: amount
+            });
         }
 
-        // Execute trade off-chain via Yellow Network (instant, zero gas)
-        const stateManager = sessionService.getStateManager();
-        const channelState = stateManager.getState(session.channelId);
-        
-        if (!channelState) {
-            return res.status(500).json({ error: 'Channel state not found' });
-        }
+        // Execute trade (AUTHORITATIVE backend calculation)
+        const trade = await MarketService.executeTrade({
+            marketId,
+            userAddress: session.accountAddress,
+            outcome,
+            amount,
+            maxSlippage,
+        });
 
-        console.log(`⚡ Executing YES trade off-chain: ${shares} shares at ${cost} USDC`);
-        
-        // Update spent amount
-        sessionService.updateSpentAmount(sessionId, cost);
+        // Update session spent amount
+        sessionService.updateSpentAmount(sessionId, trade.cost);
 
-        // Update market pools
-        market.yesPool = (market.yesPool || 0) + cost;
-        market.totalVolume = (market.totalVolume || 0) + cost;
+        const newBalance = currentBalance - trade.cost;
 
-        const newBalance = currentBalance - cost;
+        console.log(`✅ Trade executed: ${trade.sharesReceived} shares of outcome ${outcome} for ${trade.cost.toFixed(2)} USDC`);
 
         res.json({
             success: true,
             trade: {
-                type: 'YES',
-                shares,
-                cost,
-                marketId,
-                timestamp: Date.now(),
+                id: trade.id,
+                outcome,
+                amount: trade.amount,
+                cost: trade.cost,
+                sharesReceived: trade.sharesReceived,
+                price: trade.price,
+                timestamp: trade.timestamp,
             },
             balance: newBalance,
-            market: {
-                id: market.id,
-                yesPool: market.yesPool,
-                noPool: market.noPool,
-                totalVolume: market.totalVolume,
-            }
         });
     } catch (error: any) {
-        console.error('❌ Trade error:', error);
-        res.status(500).json({ error: error.message });
+        console.error('❌ Trade execution error:', error);
+        res.status(500).json({ 
+            error: error.message,
+            details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
     }
 });
 
-// Buy NO shares
-router.post('/buy-no', async (req, res) => {
-    const { sessionId, marketId, shares } = req.body;
-    
+// Get user positions for a market
+router.get('/positions/:marketId', async (req, res) => {
+    const { marketId } = req.params;
+    const { userAddress } = req.query;
+
     try {
-        if (!sessionId || !marketId || !shares) {
-            return res.status(400).json({ error: 'Missing required fields: sessionId, marketId, shares' });
+        if (!userAddress || typeof userAddress !== 'string') {
+            return res.status(400).json({ error: 'Missing userAddress query parameter' });
         }
 
-        // Get session
-        const session = sessionService.getSession(sessionId);
-        if (!session) {
-            return res.status(404).json({ error: 'Session not found' });
-        }
-
-        // Get market
-        const market = marketService.getMarket(marketId);
-        if (!market) {
-            return res.status(404).json({ error: 'Market not found' });
-        }
-
-        // Calculate cost
-        const cost = parseFloat(shares);
-        const currentBalance = parseFloat(session.depositAmount) - parseFloat(session.spentAmount);
-
-        if (cost > currentBalance) {
-            return res.status(400).json({ error: 'Insufficient balance' });
-        }
-
-        // Execute trade off-chain via Yellow Network (instant, zero gas)
-        const stateManager = sessionService.getStateManager();
-        const channelState = stateManager.getState(session.channelId);
-        
-        if (!channelState) {
-            return res.status(500).json({ error: 'Channel state not found' });
-        }
-
-        console.log(`⚡ Executing NO trade off-chain: ${shares} shares at ${cost} USDC`);
-        
-        // Update spent amount
-        sessionService.updateSpentAmount(sessionId, cost);
-
-        // Update market pools
-        market.noPool = (market.noPool || 0) + cost;
-        market.totalVolume = (market.totalVolume || 0) + cost;
-
-        const newBalance = currentBalance - cost;
+        const positions = MarketService.getUserPositions(marketId, userAddress);
 
         res.json({
             success: true,
-            trade: {
-                type: 'NO',
-                shares,
-                cost,
-                marketId,
-                timestamp: Date.now(),
-            },
-            balance: newBalance,
-            market: {
-                id: market.id,
-                yesPool: market.yesPool,
-                noPool: market.noPool,
-                totalVolume: market.totalVolume,
-            }
+            positions,
         });
     } catch (error: any) {
-        console.error('❌ Trade error:', error);
+        console.error('❌ Get positions error:', error);
         res.status(500).json({ error: error.message });
     }
 });
 
-// Sell YES shares (stub for future implementation)
-router.post('/sell-yes', async (req, res) => {
-    res.status(501).json({ error: 'Sell functionality coming soon' });
+// Get user trades for a market
+router.get('/trades/:marketId', async (req, res) => {
+    const { marketId } = req.params;
+    const { userAddress } = req.query;
+
+    try {
+        if (!userAddress || typeof userAddress !== 'string') {
+            return res.status(400).json({ error: 'Missing userAddress query parameter' });
+        }
+
+        const trades = MarketService.getUserTrades(marketId, userAddress);
+
+        res.json({
+            success: true,
+            trades,
+        });
+    } catch (error: any) {
+        console.error('❌ Get trades error:', error);
+        res.status(500).json({ error: error.message });
+    }
 });
 
-// Sell NO shares (stub for future implementation)
-router.post('/sell-no', async (req, res) => {
-    res.status(501).json({ error: 'Sell functionality coming soon' });
+// Get market statistics (authoritative prices/volumes)
+router.get('/stats/:marketId', async (req, res) => {
+    const { marketId } = req.params;
+
+    try {
+        const stats = MarketService.getMarketStats(marketId);
+        if (!stats) {
+            return res.status(404).json({ error: 'Market not found' });
+        }
+
+        res.json({
+            success: true,
+            stats,
+        });
+    } catch (error: any) {
+        console.error('❌ Get stats error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Get user winnings (after market resolution)
+router.get('/winnings/:marketId', async (req, res) => {
+    const { marketId } = req.params;
+    const { userAddress } = req.query;
+
+    try {
+        if (!userAddress || typeof userAddress !== 'string') {
+            return res.status(400).json({ error: 'Missing userAddress query parameter' });
+        }
+
+        const winnings = MarketService.getUserWinnings(marketId, userAddress);
+
+        res.json({
+            success: true,
+            winnings,
+        });
+    } catch (error: any) {
+        console.error('❌ Get winnings error:', error);
+        res.status(500).json({ error: error.message });
+    }
 });
 
 export default router;
