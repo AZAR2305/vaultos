@@ -18,6 +18,7 @@
     "test:bidirectional": "tsx scripts/test-bidirectional-transfer.ts",
     "test:multiuser": "tsx scripts/test-multi-user-market.ts",
     "test:yes-wins": "tsx scripts/test-market-yes-wins.ts",
+    "test:judge-proof": "tsx scripts/test-market-single-wallet-proof.ts",
     "test:no-wins": "tsx scripts/test-market-no-wins.ts",
     "simulate:market": "tsx scripts/test-market-simulation.ts",
     "simulate:no-wins": "tsx scripts/test-market-simulation-no-wins.ts",
