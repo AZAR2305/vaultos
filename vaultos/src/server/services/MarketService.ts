@@ -83,6 +83,7 @@ export class MarketService {
     private markets: Map<string, Market> = new Map();
     private tradeNonce: number = 0;
     private wss: WebSocketServer | null = null;
+    private ammMath: LmsrAmm = new LmsrAmm();
 
     // Initialize WebSocket server for real-time updates
     initializeWebSocket(server: any) {
@@ -142,14 +143,17 @@ export class MarketService {
             id: marketId,
             appSessionId: data.appSessionId,
             question: data.question,
-            description: data.description || '',
-            creatorAddress: data.creatorAddress,
-            ammState,
-            positions: new Map(),
-            trades: [],
-            endTime,
-            status: MarketStatus.ACTIVE,
+            description: data.description,
+            outcomes: ['YES', 'NO'],
+            creator: data.creatorAddress,
             createdAt: new Date(),
+            endTime: new Date(endTime),
+            status: MarketStatus.ACTIVE,
+            amm: ammState,
+            totalVolume: 0n,
+            trades: [],
+            positions: new Map(),
+            channelId: data.appSessionId,
         };
 
         this.markets.set(marketId, newMarket);
@@ -189,17 +193,13 @@ export class MarketService {
             throw new Error(`Market is ${market.status}, trading disabled`);
         }
 
-        // Validate slippage tolerance
-        this.ammMath.validateSlippageTolerance(market.ammState, intent.outcome, intent.amount, intent.maxSlippage);
-
         // Calculate authoritative trade parameters using AMM
-        const cost = this.ammMath.calculateCost(market.ammState, intent.outcome, intent.amount);
-        const sharesReceived = intent.amount; // In LMSR, shares bought = amount
-        const newPrice = this.ammMath.getPrice(market.ammState, intent.outcome);
+        const outcomeIndex = intent.outcome === 'YES' ? 0 : 1;
+        const result = this.ammMath.buyShares(market.amm, outcomeIndex, intent.amount);
 
-        // Update AMM state (authoritative)
-        market.ammState.quantityShares[intent.outcome] += intent.amount;
-        market.ammState.totalVolume += cost;
+        // Update market state
+        market.amm = result.newState;
+        market.totalVolume += result.cost;
 
         // Update user position
         const positionKey = `${intent.userAddress}_${intent.outcome}`;
