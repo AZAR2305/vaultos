@@ -20,88 +20,90 @@ const WalletConnect: React.FC = () => {
   const [showConnectors, setShowConnectors] = useState(false);
 
   return (
-    <div className="wallet-section">
-      {!isConnected ? (
-        <div className="wallet-disconnected">
-          <div className="wallet-icon">💼</div>
-          <h3>Connect Your Wallet</h3>
-          <p className="wallet-description">
-            Connect your Web3 wallet to access Yellow Network prediction markets
-          </p>
-          
-          {!showConnectors ? (
-            <button 
-              onClick={() => setShowConnectors(true)}
-              className="btn btn-primary btn-large"
-            >
-              🔗 Connect Wallet
-            </button>
-          ) : (
-            <div className="connector-list">
-              {connectors.map((connector) => (
-                <button
-                  key={connector.id}
-                  onClick={() => {
-                    connect({ connector });
-                    setShowConnectors(false);
-                  }}
-                  disabled={isPending}
-                  className="connector-button"
+    <div className="wallet-connect">
+      <h2>[ WALLET_LINK ]</h2>
+      
+      <div style={{ padding: '20px' }}>
+        {!isConnected ? (
+          <>
+            {!showConnectors ? (
+              <>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '20px' }}>
+                  {'> Connect Web3 wallet to access Yellow Network markets'}
+                </p>
+                <button 
+                  onClick={() => setShowConnectors(true)}
+                  className="btn btn-primary"
+                  style={{ width: '100%' }}
                 >
-                  <span className="connector-icon">🦊</span>
-                  <span>{connector.name}</span>
+                  [CONNECT WALLET]
                 </button>
-              ))}
-              <button 
-                onClick={() => setShowConnectors(false)}
-                className="btn btn-secondary btn-small"
-              >
-                Cancel
-              </button>
-            </div>
-          )}
-          
-          <div className="wallet-features">
-            <div className="feature-badge">⚡ Off-chain Trading</div>
-            <div className="feature-badge">💰 Zero Gas Fees</div>
-            <div className="feature-badge">🔒 Secure Sessions</div>
-          </div>
-        </div>
-      ) : (
-        <div className="wallet-connected">
-          <div className="wallet-header">
-            <div className="status-indicator">
-              <span className="status-dot"></span>
-              <span className="status-text">Connected</span>
-            </div>
-          </div>
-          
-          <div className="wallet-details">
-            <div className="detail-row">
-              <span className="detail-label">Address</span>
-              <span className="detail-value address-value">
-                {address?.slice(0, 6)}...{address?.slice(-4)}
-              </span>
+              </>
+            ) : (
+              <>
+                <div style={{ marginBottom: '15px' }}>
+                  {connectors.map((connector) => (
+                    <button
+                      key={connector.id}
+                      onClick={() => {
+                        connect({ connector });
+                        setShowConnectors(false);
+                      }}
+                      disabled={isPending}
+                      className="btn btn-primary"
+                      style={{ width: '100%', marginBottom: '10px' }}
+                    >
+                      {connector.name}
+                    </button>
+                  ))}
+                </div>
+                <button 
+                  onClick={() => setShowConnectors(false)}
+                  className="btn btn-secondary"
+                  style={{ width: '100%' }}
+                >
+                  [CANCEL]
+                </button>
+              </>
+            )}
+          </>
+        ) : (
+          <>
+            <div style={{ marginBottom: '20px' }}>
+              <p style={{ color: 'var(--accent-retro)', fontSize: '0.75rem', marginBottom: '5px' }}>
+                STATUS: CONNECTED
+              </p>
+              <p className="wallet-address" style={{ fontSize: '0.85rem', wordBreak: 'break-all' }}>
+                {address?.slice(0, 8)}...{address?.slice(-6)}
+              </p>
             </div>
             
             {balance && (
-              <div className="detail-row">
-                <span className="detail-label">Balance</span>
-                <span className="detail-value">
+              <div style={{ 
+                background: 'var(--bg-color)', 
+                border: '2px solid var(--border-color)', 
+                padding: '10px',
+                marginBottom: '15px'
+              }}>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '5px' }}>
+                  BALANCE:
+                </p>
+                <p style={{ fontSize: '1.1rem', fontWeight: '700', color: 'var(--accent-retro)' }}>
                   {parseFloat(balance.formatted).toFixed(4)} {balance.symbol}
-                </span>
+                </p>
               </div>
             )}
-          </div>
-          
-          <button 
-            onClick={() => disconnect()} 
-            className="btn btn-secondary btn-small"
-          >
-            Disconnect
-          </button>
-        </div>
-      )}
+            
+            <button 
+              onClick={() => disconnect()} 
+              className="btn btn-secondary"
+              style={{ width: '100%' }}
+            >
+              [DISCONNECT]
+            </button>
+          </>
+        )}
+      </div>
     </div>
   );
 };
