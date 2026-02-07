@@ -358,7 +358,8 @@ body::before {
 }
 
 .btn-danger:hover:not(:disabled) {
-  background: #dc2626;
+  background: #d32f2f;
+  border-color: #d32f2f;
 }
 
 .btn-sm {
@@ -643,6 +644,36 @@ textarea.input {
   max-width: 800px;
 }
 
+.balance-info {
+  background: #0f1624;
+  border: 2px solid #FFD700;
+  padding: 15px;
+  margin-bottom: 20px;
+  color: #FFD700;
+  font-size: 1.1rem;
+}
+
+.market-prices {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 15px 0;
+}
+
+.price-display {
+  background: #0f1624;
+  border: 2px solid #2196F3;
+  padding: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #fff;
+}
+
+.price-display strong {
+  color: #FFD700;
+}
+
 .trade-form {
   background: var(--bg-color);
   padding: 20px;
@@ -668,7 +699,7 @@ textarea.input {
 }
 
 .trade-btn:hover {
-  transform: translateY(-2px);
+  background: #2196F3;
 }
 
 .trade-btn.active.yes {
@@ -690,6 +721,7 @@ textarea.input {
   padding: 15px;
   border: 2px solid var(--border-color);
   margin: 15px 0;
+  color: #fff;
 }
 
 .trade-summary p {
@@ -700,6 +732,10 @@ textarea.input {
 
 .trade-summary strong {
   color: var(--accent-retro);
+}
+
+.trade-summary strong {
+  color: #FFD700;
 }
 
 /* Home */

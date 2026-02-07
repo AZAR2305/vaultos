@@ -40,7 +40,7 @@ const BalanceDisplayNew: React.FC = () => {
     
     setLoading(true);
     try {
-      const response = await fetch(`/api/state/${session.sessionId}`);
+      const response = await fetch(`http://localhost:3000/api/state/${session.sessionId}`);
       if (response.ok) {
         const data = await response.json();
         setBalance(data.state.balances);
@@ -81,7 +81,7 @@ const BalanceDisplayNew: React.FC = () => {
   };
 
   const requestRefund = async () => {
-    if (!confirm('Request partial refund (max 25%)?')) return;
+    if (!confirm('Request partial refund (max 25%)? You will NOT be able to trade anymore after refund.')) return;
     if (!address) return;
 
     const sessionData = localStorage.getItem(`session_${address}`);
@@ -98,7 +98,12 @@ const BalanceDisplayNew: React.FC = () => {
 
       if (response.ok) {
         const data = await response.json();
-        alert(`Refund successful: ${data.refundAmount} USDC`);
+        alert(`Refund successful: ${data.refundAmount} USDC. You can no longer trade with this session.`);
+        
+        // Mark session as refunded
+        const updatedSession = { ...session, hasRefunded: true };
+        localStorage.setItem(`session_${address}`, JSON.stringify(updatedSession));
+        
         loadBalance();
       }
     } catch (err) {
@@ -112,7 +117,7 @@ const BalanceDisplayNew: React.FC = () => {
 
   return (
     <div className="balance-display">
-      <h2>💰 Balance</h2>
+      <h2>Balance</h2>
 
       {loading ? (
         <p>Loading...</p>
@@ -139,13 +144,13 @@ const BalanceDisplayNew: React.FC = () => {
 
           <div className="balance-actions">
             <button onClick={moveToIdle} className="btn btn-secondary btn-sm">
-              📊 Move to Idle
+              Move to Idle
             </button>
             <button onClick={requestRefund} className="btn btn-secondary btn-sm">
-              💸 Request Refund
+              Request Refund
             </button>
             <button onClick={loadBalance} className="btn btn-secondary btn-sm">
-              🔄 Refresh
+              Refresh
             </button>
           </div>
 

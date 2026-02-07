@@ -2,9 +2,11 @@ import express from 'express';
 import cors from 'cors';
 import sessionRoutes from './routes/session';
 import marketRoutes from './routes/market';
+import marketsRoutes from './routes/markets';
 import tradeRoutes from './routes/trade';
 import balanceRoutes from './routes/balance';
 import stateRoutes from './routes/state';
+import yellowRoutes from './routes/yellow';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -33,23 +35,24 @@ app.get('/', (req, res) => {
 
 app.use('/api/session', sessionRoutes);
 app.use('/api/market', marketRoutes);
+app.use('/api/markets', marketsRoutes);
 app.use('/api/trade', tradeRoutes);
 app.use('/api/balance', balanceRoutes);
 app.use('/api/state', stateRoutes);
-
-// Get all markets
-app.get('/api/markets', (req, res) => {
-  // This would come from MarketService
-  res.json({
-    success: true,
-    markets: []
-  });
-});
+app.use('/api/yellow', yellowRoutes);
 
 app.listen(PORT, () => {
-  console.log(`🚀 VaultOS server running on http://localhost:${PORT}`);
-  console.log(`📡 Yellow Network integration active`);
-  console.log(`💼 Wallet-based sessions enabled`);
+  console.log(`\n🟢 ====================================`);
+  console.log(`   VaultOS Server Started`);
+  console.log(`====================================`);
+  console.log(`📡 Server: http://localhost:${PORT}`);
+  console.log(`🌐 Environment: SANDBOX (Testnet)`);
+  console.log(`⚡ Yellow Network: Base Sepolia`);
+  console.log(`🔗 Clearnode: wss://clearnet-sandbox.yellow.com/ws`);
+  console.log(`💰 Token: ytest.USD (free testnet)`);
+  console.log(`📊 Markets: LMSR AMM ready`);
+  console.log(`⚠️  Using testnet - no real money`);
+  console.log(`====================================\n`);
 });
 
 export default app;

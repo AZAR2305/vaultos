@@ -1,15 +1,14 @@
 import { http, createConfig } from 'wagmi';
-import { mainnet, sepolia } from 'wagmi/chains';
+import { baseSepolia } from 'wagmi/chains';
 import { injected, metaMask } from 'wagmi/connectors';
 
 export const config = createConfig({
-  chains: [mainnet, sepolia],
+  chains: [baseSepolia],
   connectors: [
     injected(),
     metaMask(),
   ],
   transports: {
-    [mainnet.id]: http(),
-    [sepolia.id]: http(),
+    [baseSepolia.id]: http('https://sepolia.base.org'),
   },
 });

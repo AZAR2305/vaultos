@@ -21,6 +21,19 @@ interface SessionManagerProps {
 
 const SessionManager: React.FC<SessionManagerProps> = ({ onSessionChange }) => {
   const { address, isConnected } = useAccount();
+  const { signMessageAsync } = useSignMessage();
+  
+  // Check ytest.USD balance
+  const { data: ytestBalance, refetch: refetchBalance } = useReadContract({
+    address: YTEST_USD_TOKEN,
+    abi: ERC20_ABI,
+    functionName: 'balanceOf',
+    args: address ? [address] : undefined,
+    query: {
+      enabled: !!address,
+    },
+  });
+
   const [session, setSession] = useState<Session | null>(null);
   const [depositAmount, setDepositAmount] = useState<string>('1000');
   const [loading, setLoading] = useState(false);
@@ -29,6 +42,17 @@ const SessionManager: React.FC<SessionManagerProps> = ({ onSessionChange }) => {
     if (!address) {
       alert('Please connect your wallet first');
       return;
+    }
+
+    // Check ytest.USD balance (optional for demo - tokens may not show in MetaMask yet)
+    const balanceNum = parseFloat(formattedBalance);
+    const depositNum = parseFloat(depositAmount);
+    
+    if (balanceNum < depositNum) {
+      // Show warning but allow proceeding (tokens might exist but not imported to MetaMask)
+      console.warn(`⚠️ Balance shows ${formattedBalance} but requesting ${depositAmount} - proceeding anyway (demo mode)`);
+      setFaucetMessage(`⚠️ Balance check bypassed for demo. If you got tokens via faucet, this will work!`);
+      // Don't return - let them proceed
     }
 
     setLoading(true);

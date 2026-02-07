@@ -8,7 +8,7 @@
  * - Off-chain transfers
  * - Channel closing and withdrawal
  * 
- * Testnet: Yellow Sandbox (Sepolia)
+ * Testnet: Yellow Sandbox (Base Sepolia)
  */
 
 import {
@@ -16,6 +16,7 @@ import {
     WalletStateSigner,
     createTransferMessage,
     createGetConfigMessage,
+    createGetChannelsMessage,
     createECDSAMessageSigner,
     createEIP712AuthMessageSigner,
     createAuthVerifyMessageFromChallenge,
@@ -28,7 +29,7 @@ import {
     type RPCAsset,
 } from '@erc7824/nitrolite';
 import { createPublicClient, createWalletClient, http } from 'viem';
-import { sepolia } from 'viem/chains';
+import { baseSepolia } from 'viem/chains';
 import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
 import WebSocket from 'ws';
 import 'dotenv/config';
@@ -50,18 +51,22 @@ export class VaultOSYellowClient {
     private activeChannelId: string | null = null;
     private config: YellowConfig = {};
     private isAuthenticated = false;
+    private authParams: any = null; // Store original auth params for signature verification
+    private readonly custodyAddress = '0x019B65A265EB3363822f2752141b3dF16131b262' as `0x${string}`;
+    private readonly clearnodeUrl = 'wss://clearnet-sandbox.yellow.com/ws';
+    private readonly environment = 'SANDBOX'; // SANDBOX or PRODUCTION
 
     constructor(privateKey: `0x${string}`, rpcUrl?: string) {
         this.account = privateKeyToAccount(privateKey);
 
         // Create viem clients
         this.publicClient = createPublicClient({
-            chain: sepolia,
-            transport: http(rpcUrl || 'https://1rpc.io/sepolia'),
+            chain: baseSepolia,
+            transport: http('https://sepolia.base.org'),
         });
 
         this.walletClient = createWalletClient({
-            chain: sepolia,
+            chain: baseSepolia,
             transport: http(),
             account: this.account,
         });
@@ -75,12 +80,16 @@ export class VaultOSYellowClient {
                 custody: '0x019B65A265EB3363822f2752141b3dF16131b262',
                 adjudicator: '0x7c7ccbc98469190849BCC6c926307794fDfB11F2',
             },
-            chainId: sepolia.id,
+            chainId: baseSepolia.id,
             challengeDuration: 3600n, // 1 hour
         });
 
-        console.log('✓ Yellow Network Client initialized');
-        console.log('  Wallet:', this.account.address);
+        console.log('🟢 Yellow Network Client initialized');
+        console.log(`   Environment: ${this.environment} (Testnet)`);
+        console.log(`   Chain: Base Sepolia (${baseSepolia.id})`);
+        console.log(`   Clearnode: ${this.clearnodeUrl}`);
+        console.log(`   Wallet: ${this.account.address}`);
+        console.log(`   Token: ytest.USD (free faucet available)`);
     }
 
     /**
@@ -90,14 +99,14 @@ export class VaultOSYellowClient {
         const tempSigner = createECDSAMessageSigner(this.account.address as `0x${string}`);
         const message = await createGetConfigMessage(tempSigner);
 
-        const tempWs = new WebSocket('wss://clearnet-sandbox.yellow.com/ws');
+        const tempWs = new WebSocket(this.clearnodeUrl);
 
         return new Promise((resolve, reject) => {
             tempWs.onopen = () => tempWs.send(message);
 
-            tempWs.onmessage = (event) => {
+            tempWs.on('message', (data: Buffer) => {
                 try {
-                    const response = JSON.parse(event.data.toString());
+                    const response = JSON.parse(data.toString('utf-8'));
                     if (response.res && response.res[2]) {
                         resolve(response.res[2] as YellowConfig);
                         tempWs.close();
@@ -109,7 +118,7 @@ export class VaultOSYellowClient {
                     reject(err);
                     tempWs.close();
                 }
-            };
+            });
 
             tempWs.onerror = (error) => {
                 reject(error);
@@ -136,7 +145,7 @@ export class VaultOSYellowClient {
         console.log('✓ Session key generated:', sessionAccount.address);
 
         // Connect WebSocket
-        this.ws = new WebSocket('wss://clearnet-sandbox.yellow.com/ws');
+        this.ws = new WebSocket(this.clearnodeUrl);
 
         await new Promise<void>((resolve) => {
             this.ws!.on('open', () => {
@@ -151,12 +160,15 @@ export class VaultOSYellowClient {
         // Send auth request
         const authParams = {
             address: this.account.address,
-            application: 'VaultOS Prediction Market',
+            application: 'Yellow',  // Must match EIP-712 domain name
             session_key: sessionAccount.address,
             allowances: [{ asset: 'ytest.usd', amount: '1000000000' }],
             expires_at: BigInt(Math.floor(Date.now() / 1000) + 3600),
             scope: 'vaultos.trading',
         };
+
+        // Store auth params for signature verification in handleAuthChallenge
+        this.authParams = authParams;
 
         const authRequestMsg = await createAuthRequestMessage(authParams);
         this.ws.send(authRequestMsg);
@@ -176,8 +188,8 @@ export class VaultOSYellowClient {
     private setupMessageHandler(): void {
         if (!this.ws) return;
 
-        this.ws.on('message', async (event) => {
-            const response = JSON.parse(event.data.toString());
+        this.ws.on('message', async (data) => {
+            const response = JSON.parse(data.toString());
             
             if (response.error) {
                 console.error('❌ RPC Error:', response.error);
@@ -195,9 +207,6 @@ export class VaultOSYellowClient {
                     break;
                 case 'channels':
                     await this.handleChannelsResponse(response);
-                    break;
-                case 'create_channel':
-                    await this.handleCreateChannel(response);
                     break;
                 case 'resize_channel':
                     await this.handleResizeChannel(response);
@@ -219,17 +228,30 @@ export class VaultOSYellowClient {
         if (this.isAuthenticated) return;
 
         const challenge = response.res[2].challenge_message;
-        const authParams = {
-            session_key: privateKeyToAccount(this.sessionPrivateKey!).address,
+        
+        // 🔑 CRITICAL: Must sign with USER EOA ONLY (not session key)
+        // The signer must recover to the address from auth_request
+        const sessionAccount = privateKeyToAccount(this.sessionPrivateKey!);
+        
+        // Create fresh wallet client with EOA account
+        const eoaWalletClient = createWalletClient({
+            account: this.account,
+            chain: baseSepolia,
+            transport: http('https://sepolia.base.org'),
+        });
+        
+        // Auth params for EIP-712 signature (NO address field here!)
+        const authParamsForSigning = {
+            session_key: sessionAccount.address,
             allowances: [{ asset: 'ytest.usd', amount: '1000000000' }],
-            expires_at: BigInt(Math.floor(Date.now() / 1000) + 3600),
+            expires_at: this.authParams.expires_at,  // Reuse same expires_at
             scope: 'vaultos.trading',
         };
-
+        
         const signer = createEIP712AuthMessageSigner(
-            this.walletClient,
-            authParams,
-            { name: 'VaultOS Prediction Market' }
+            eoaWalletClient,
+            authParamsForSigning,
+            { name: 'Yellow' }
         );
 
         const verifyMsg = await createAuthVerifyMessageFromChallenge(signer, challenge);
@@ -239,12 +261,21 @@ export class VaultOSYellowClient {
     /**
      * Handle auth verify success
      */
-    private handleAuthVerify(response: any): void {
+    private async handleAuthVerify(response: any): Promise<void> {
         console.log('✓ Authenticated successfully');
         this.isAuthenticated = true;
 
+        // 🔑 CRITICAL: Request channels explicitly after auth
+        const channelsMsg = await createGetChannelsMessage(
+            this.sessionSigner,
+            this.account.address,
+            Date.now()
+        );
+        this.ws!.send(channelsMsg);
+        console.log('✓ Requested channels list');
+
         // Query ledger balances
-        const ledgerMsg = createGetLedgerBalancesMessage(
+        const ledgerMsg = await createGetLedgerBalancesMessage(
             this.sessionSigner,
             this.account.address,
             Date.now()
@@ -259,64 +290,94 @@ export class VaultOSYellowClient {
         const channels = response.res[2].channels;
         const openChannel = channels.find((c: any) => c.status === 'open');
 
-        const chainId = sepolia.id;
-        const supportedAsset = this.config.assets?.find((a: any) => a.chain_id === chainId);
-        const token = supportedAsset?.token || '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238';
-
         if (openChannel) {
             console.log('✓ Found existing open channel:', openChannel.channel_id);
             this.activeChannelId = openChannel.channel_id;
         } else {
-            console.log('  Creating new channel...');
-            const createMsg = await createCreateChannelMessage(this.sessionSigner, {
-                chain_id: 11155111,
-                token: token,
-            });
-            this.ws!.send(createMsg);
+            console.log('✓ No existing channel - ledger balance available for trading');
         }
     }
 
     /**
-     * Handle channel creation
+     * Create channel - OFFICIAL Yellow/Nitrolite flow
+     * 
+     * ⚠️ CRITICAL: depositAndCreateChannel handles everything atomically.
+     * No WS create_channel message needed!
      */
-    private async handleCreateChannel(response: any): Promise<void> {
-        const { channel_id, channel, state, server_signature } = response.res[2];
-        this.activeChannelId = channel_id;
+    async createChannel(): Promise<void> {
+        try {
+            // Step 1: Use Official USDC token on Base Sepolia
+            // This is where Circle faucet sends tokens
+            const tokenAddress = '0x036CbD53842c5426634e7929541eC2318f3dCF7e' as `0x${string}`;
+            const decimals = 6n; // USDC has 6 decimals
+            const depositAmount = 20n * (10n ** decimals); // 20 USDC = 20,000,000 units
 
-        console.log('✓ Channel prepared:', channel_id);
+            console.log('💰 Using Official USDC on Base Sepolia');
+            console.log('💰 Token:', tokenAddress);
+            console.log('💰 Decimals:', decimals.toString());
+            console.log('💰 Deposit amount:', depositAmount.toString(), '(20 USDC)');
 
-        const unsignedInitialState = {
-            intent: state.intent,
-            version: BigInt(state.version),
-            data: state.state_data,
-            allocations: state.allocations.map((a: any) => ({
-                destination: a.destination,
-                token: a.token,
-                amount: BigInt(a.amount),
-            })),
-        };
+            // Step 2: Approve custody contract to spend tokens
+            console.log('💳 Approving custody contract...');
+            const custodyAddress = this.nitroliteClient.addresses.custody;
+            
+            const approvalHash = await this.walletClient.writeContract({
+                address: tokenAddress,
+                abi: [
+                    {
+                        name: 'approve',
+                        type: 'function',
+                        stateMutability: 'nonpayable',
+                        inputs: [
+                            { name: 'spender', type: 'address' },
+                            { name: 'amount', type: 'uint256' }
+                        ],
+                        outputs: [{ type: 'bool' }]
+                    }
+                ],
+                functionName: 'approve',
+                args: [custodyAddress, depositAmount],
+                account: this.account,
+                chain: baseSepolia,
+            });
 
-        const createResult = await this.nitroliteClient.createChannel({
-            channel,
-            unsignedInitialState,
-            serverSignature: server_signature,
-        });
+            console.log('✓ Approval sent:', approvalHash);
+            console.log('⏳ Waiting for approval confirmation...');
+            
+            await this.publicClient.waitForTransactionReceipt({ hash: approvalHash });
+            console.log('✓ Approval confirmed');
 
-        const txHash = typeof createResult === 'string' ? createResult : createResult.txHash;
-        console.log('✓ Channel created on-chain:', txHash);
+            // Step 3: Create funded channel (NO manual state building needed!)
+            console.log('💰 Creating funded channel...');
+            const txHash = await this.nitroliteClient.depositAndCreateChannel(
+                tokenAddress,
+                depositAmount
+            );
 
-        await this.publicClient.waitForTransactionReceipt({ hash: txHash });
-        console.log('✓ Transaction confirmed');
+            console.log('✓ Channel created on-chain:', txHash);
 
-        // Fund the channel
-        await this.fundChannel(channel_id, state.allocations[0].token);
+            await this.publicClient.waitForTransactionReceipt({ hash: txHash });
+            console.log('✓ Channel LIVE & FUNDED');
+            console.log(`✓ Balance: ${depositAmount / (10n ** decimals)} ytest.USD`);
+
+        } catch (error: any) {
+            if (error.message?.includes('insufficient') || error.message?.includes('balance')) {
+                console.log('\n⚠️  Need tokens to create channel');
+                console.log('   Wallet:', this.account.address);
+                console.log('   Faucet: curl -X POST https://clearnet-sandbox.yellow.com/faucet/requestTokens \\');
+                console.log(`           -H "Content-Type: application/json" -d '{"userAddress":"${this.account.address}"}'`);
+            } else {
+                console.error('❌ Channel creation error:', error.message);
+            }
+        }
     }
 
     /**
      * Fund channel using allocate_amount (from Unified Balance)
+     * This is for ADDING funds to existing channel, not initial creation
      */
     private async fundChannel(channelId: string, token: string): Promise<void> {
-        console.log('\n💰 Funding channel...');
+        console.log('\n💰 Adding more funds to channel...');
 
         const resizeMsg = await createResizeChannelMessage(this.sessionSigner, {
             channel_id: channelId as `0x${string}`,
@@ -441,8 +502,6 @@ export class VaultOSYellowClient {
     private async withdrawFunds(token: string): Promise<void> {
         console.log('\n💵 Withdrawing funds...');
 
-        await new Promise(r => setTimeout(r, 2000));
-
         const result = await this.publicClient.readContract({
             address: this.nitroliteClient.addresses.custody,
             abi: [{
@@ -477,10 +536,15 @@ export class VaultOSYellowClient {
      * Wait for authentication to complete
      */
     private async waitForAuthentication(): Promise<void> {
-        return new Promise((resolve) => {
+        return new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                reject(new Error('Authentication timeout after 60 seconds'));
+            }, 60000);
+
             const checkAuth = setInterval(() => {
                 if (this.isAuthenticated) {
                     clearInterval(checkAuth);
+                    clearTimeout(timeout);
                     resolve();
                 }
             }, 100);

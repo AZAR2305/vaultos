@@ -1,19 +1,27 @@
 import { Router } from 'express';
-import { SessionService } from '../services/SessionService';
+import sessionService from '../services/SessionService';
 
 const router = Router();
-const sessionService = new SessionService();
 
 // Create a new trading session with wallet address
+// Accepts optional existingChannelId to resume channel after page reload
 router.post('/create', async (req, res) => {
-    const { walletAddress, depositAmount } = req.body;
+    const { walletAddress, depositAmount, existingChannelId } = req.body;
     try {
         if (!walletAddress) {
             return res.status(400).json({ error: 'Wallet address required' });
         }
         
-        const session = await sessionService.createSession(walletAddress, depositAmount);
-        res.status(201).json({ success: true, session });
+        // Pass existingChannelId for channel recovery
+        const session = await sessionService.createSession(
+            walletAddress, 
+            depositAmount, 
+            existingChannelId
+        );
+        
+        // Return serializable session data (exclude yellowClient)
+        const { yellowClient, ...serializableSession } = session;
+        res.status(201).json({ success: true, session: serializableSession });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
@@ -38,7 +46,40 @@ router.get('/:sessionId', async (req, res) => {
         if (!session) {
             return res.status(404).json({ error: 'Session not found' });
         }
-        res.status(200).json({ success: true, session });
+        
+        // Return serializable session data (exclude yellowClient)
+        const { yellowClient, ...serializableSession } = session;
+        res.status(200).json({ success: true, session: serializableSession });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Add funds to existing channel
+router.post('/deposit', async (req, res) => {
+    const { sessionId, amount } = req.body;
+    try {
+        if (!sessionId || !amount) {
+            return res.status(400).json({ error: 'sessionId and amount required' });
+        }
+        
+        const result = await sessionService.depositToChannel(sessionId, amount);
+        res.status(200).json({ success: true, ...result });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Withdraw from existing channel
+router.post('/withdraw', async (req, res) => {
+    const { sessionId, amount } = req.body;
+    try {
+        if (!sessionId || !amount) {
+            return res.status(400).json({ error: 'sessionId and amount required' });
+        }
+        
+        const result = await sessionService.withdrawFromChannel(sessionId, amount);
+        res.status(200).json({ success: true, ...result });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }

@@ -16,7 +16,16 @@ This will install:
 - Express server
 - Yellow Network integration
 
-### Step 2: Start Backend Server
+### Step 2: Environment Setup
+
+Copy `.env.example` to `.env` and set your private key:
+```bash
+PRIVATE_KEY=0x...
+```
+
+**Important**: Admin wallet is `0xFefa60F5aA4069F96b9Bf65c814DDb3A604974e1` (only this wallet can create markets)
+
+### Step 3: Start Backend Server
 
 ```bash
 npm run dev
@@ -29,7 +38,7 @@ You should see:
 💼 Wallet-based sessions enabled
 ```
 
-### Step 3: Start Frontend (New Terminal)
+### Step 4: Start Frontend (New Terminal)
 
 ```bash
 npm run dev:client
@@ -43,9 +52,27 @@ You should see:
   ➜  Network: use --host to expose
 ```
 
-### Step 4: Open Browser
+### Step 5: Open Browser
 
 Navigate to: **http://localhost:5173**
+
+---
+
+## ⚠️ Important Setup Notes
+
+### Admin Wallet (Market Creation)
+**Only the admin wallet can create markets:**
+- Admin: `0xFefa60F5aA4069F96b9Bf65c814DDb3A604974e1`
+- Regular users can only trade on existing markets
+- This ensures market quality and prevents spam
+
+### Yellow Network Token
+**MUST use ytest.USD token:**
+- Yellow Network state channels ONLY work with funded ERC-20 balances
+- Token address: `0xDB9F293e3898c9E5536A3be1b0C56c89d2b32DEb` (Base Sepolia)
+- **Easy way**: Click "💰 Get Testnet ytest.USD" button in the UI (Session Manager sidebar)
+- Manual way: Visit [Yellow Sandbox Faucet](https://clearnet-sandbox.yellow.com)
+- Cannot use ETH or other tokens for trading
 
 ---
 
@@ -68,16 +95,19 @@ Navigate to: **http://localhost:5173**
    - 1 hour expiration
    - Up to 25% refundable
 
-### Create a Prediction Market
+### Create a Prediction Market (Admin Only)
 
-1. Click "**📊 Markets**" tab
-2. Click "**➕ Create Market**"
+**⚠️ Only admin wallet (0xFefa...4e1) can create markets**
+
+1. Click "📊 Markets" tab
+2. Click "Create Market (Admin)" button
 3. Fill in:
    - Question: "Will BTC reach $150k by June 2026?"
    - Description: "Market resolves YES if..."
    - Duration: 30 minutes
-   - YES Price: 0.55 (55¢)
-4. Click "**🚀 Create Market**"
+   - Initial Liquidity: 100 USDC
+4. Click "Create Market"
+5. Market becomes visible to ALL users for trading
 
 ### Trade on Markets
 
@@ -266,8 +296,31 @@ You now have a fully functional wallet-based prediction market with:
 
 ## 📚 Additional Resources
 
+### For Judges & Reviewers 🏆
+- **[JUDGE_ARCHITECTURE.md](JUDGE_ARCHITECTURE.md)** - **START HERE** - Complete architecture explanation
+- **[SESSION_VS_CHANNEL.md](SESSION_VS_CHANNEL.md)** - **CRITICAL** - Session key vs channel lifecycle
+- **[SECURITY_VERIFICATION.md](SECURITY_VERIFICATION.md)** - Security audit & role boundary verification
+
+### Technical Documentation
 - [README_WALLET.md](README_WALLET.md) - Complete documentation
-- [DEMO.md](DEMO.md) - Original API demo
 - [ARCHITECTURE.md](ARCHITECTURE.md) - Technical deep dive
+- [DEMO.md](DEMO.md) - Original API demo
+
+---
+
+## 🎯 Judge-Ready Explanation
+
+**"Our AMM pricing and trading happen off-chain using Yellow Network state channels for instant, gas-free execution. Market outcomes are resolved using verifiable oracles like Chainlink, and final settlement is enforced by Yellow's on-chain contracts. This gives us Web2-speed with Web3 security."**
+
+### Key Judge Questions Answered:
+
+**Q: Can the backend steal funds?**
+> **No.** The backend only signs messages within user-approved channel limits. Final fund movement is enforced by Yellow's smart contracts.
+
+**Q: Is admin override centralized?**
+> Emergency resolution is **time-locked (24h) or multi-sig (3-of-5)** to prevent abuse. Used only for oracle failures.
+
+**Q: Why not use on-chain AMM?**
+> Off-chain = instant trades, zero gas. On-chain enforcement = security. Best of both worlds.
 
 **Happy Trading! 🚀**

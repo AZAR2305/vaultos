@@ -1,0 +1,222 @@
+/* Admin Panel Styles */
+
+.admin-panel {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.admin-header {
+  margin-bottom: 2rem;
+}
+
+.admin-header h2 {
+  color: var(--yellow-primary);
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+.admin-subtitle {
+  color: var(--text-secondary);
+  font-size: 1.1rem;
+}
+
+.admin-card {
+  background: var(--bg-tertiary);
+  padding: 2rem;
+  border-radius: 12px;
+  border: 1px solid var(--blue-primary);
+  margin-bottom: 2rem;
+}
+
+.admin-card h3 {
+  color: var(--blue-light);
+  margin-bottom: 1.5rem;
+  font-size: 1.5rem;
+}
+
+.market-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.form-group label {
+  color: var(--text-primary);
+  font-weight: 500;
+  font-size: 0.95rem;
+}
+
+.required {
+  color: var(--error);
+}
+
+.form-input, .form-textarea {
+  padding: 0.75rem 1rem;
+  background: var(--bg-primary);
+  border: 1px solid var(--blue-dark);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-family: inherit;
+  transition: all 0.3s ease;
+}
+
+.form-input:focus, .form-textarea:focus {
+  outline: none;
+  border-color: var(--yellow-primary);
+  box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.1);
+}
+
+.form-textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+.form-hint {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+.market-preview {
+  background: var(--bg-primary);
+  padding: 1.5rem;
+  border-radius: 8px;
+  border: 1px solid var(--blue-primary);
+}
+
+.market-preview h4 {
+  color: var(--yellow-primary);
+  margin-bottom: 1rem;
+  font-size: 1rem;
+}
+
+.preview-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.preview-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--bg-tertiary);
+}
+
+.preview-item:last-child {
+  border-bottom: none;
+}
+
+.preview-label {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.preview-value {
+  color: var(--text-primary);
+  font-weight: 500;
+  font-size: 0.9rem;
+  text-align: right;
+}
+
+.success-message {
+  background: linear-gradient(135deg, rgba(76, 175, 80, 0.2) 0%, rgba(76, 175, 80, 0.1) 100%);
+  padding: 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--success);
+  color: var(--success);
+  font-size: 0.95rem;
+}
+
+.error-message {
+  background: linear-gradient(135deg, rgba(244, 67, 54, 0.2) 0%, rgba(244, 67, 54, 0.1) 100%);
+  padding: 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--error);
+  color: var(--error);
+  font-size: 0.95rem;
+}
+
+.btn-create-market {
+  width: 100%;
+  padding: 1rem 2rem;
+  background: linear-gradient(135deg, var(--yellow-primary) 0%, var(--yellow-dark) 100%);
+  color: var(--bg-primary);
+  border: none;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  box-shadow: var(--shadow-yellow);
+}
+
+.btn-create-market:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px var(--yellow-glow);
+}
+
+.btn-create-market:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.admin-info {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+}
+
+.info-card {
+  background: var(--bg-tertiary);
+  padding: 1.5rem;
+  border-radius: 12px;
+  border: 1px solid var(--blue-primary);
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.info-icon {
+  font-size: 2rem;
+  min-width: 40px;
+}
+
+.info-text h4 {
+  color: var(--blue-light);
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.info-text p {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.6;
+  margin: 0;
+}
+
+@media (max-width: 768px) {
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+  
+  .admin-info {
+    grid-template-columns: 1fr;
+  }
+}

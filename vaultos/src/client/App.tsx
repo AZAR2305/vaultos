@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import WalletConnect from './components/WalletConnect';
 import SessionManager from './components/SessionManager';
-import MarketList from './components/MarketList';
-import TradePanel from './components/TradePanel';
-import BalanceDisplay from './components/BalanceDisplay';
+import MarketDashboard from './components/MarketDashboard';
+import BalanceDisplayNew from './components/BalanceDisplayNew';
+import PositionsView from './components/PositionsView';
 
 const App = () => {
   const [currentView, setCurrentView] = useState<'landing' | 'profile' | 'dashboard' | 'markets' | 'trade'>('landing');

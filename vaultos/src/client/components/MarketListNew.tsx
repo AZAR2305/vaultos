@@ -5,32 +5,55 @@ interface Market {
   id: string;
   question: string;
   description: string;
-  yesPrice: number;
-  noPrice: number;
+  yesPool: number;
+  noPool: number;
+  totalPool: number;
   endTime: number;
-  totalVolume: number;
+  status: 'open' | 'closed' | 'resolved';
+  outcome?: 'YES' | 'NO';
+  creatorAddress: string;
 }
 
 const MarketListNew: React.FC = () => {
-  const { isConnected } = useAccount();
+  const { address, isConnected } = useAccount();
+  
+  // 🔒 ADMIN-ONLY: Only admin wallet can create markets
+  const ADMIN_WALLET = '0xFefa60F5aA4069F96b9Bf65c814DDb3A604974e1';
+  const isAdmin = address?.toLowerCase() === ADMIN_WALLET.toLowerCase();
+  
   const [markets, setMarkets] = useState<Market[]>([]);
   const [loading, setLoading] = useState(false);
+  const [creating, setCreating] = useState(false);
   const [newMarket, setNewMarket] = useState({
     question: '',
     description: '',
     durationMinutes: 30,
-    yesPrice: 0.5,
+    initialLiquidity: 100, // USDC for market liquidity
   });
   const [showCreate, setShowCreate] = useState(false);
+  const [session, setSession] = useState<any>(null);
 
+  // Load session from localStorage
+  useEffect(() => {
+    if (address) {
+      const sessionData = localStorage.getItem(`session_${address}`);
+      if (sessionData) {
+        setSession(JSON.parse(sessionData));
+      }
+    }
+  }, [address]);
+
+  // Load markets
   useEffect(() => {
     loadMarkets();
+    const interval = setInterval(loadMarkets, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   const loadMarkets = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/markets');
+      const response = await fetch('http://localhost:3000/api/market');
       if (response.ok) {
         const data = await response.json();
         setMarkets(data.markets || []);
@@ -43,38 +66,95 @@ const MarketListNew: React.FC = () => {
   };
 
   const createMarket = async () => {
-    if (!newMarket.question) {
+    if (!newMarket.question.trim()) {
       alert('Please enter a question');
       return;
     }
 
+    if (!isAdmin) {
+      alert('Only admin wallet can create markets');
+      return;
+    }
+
+    if (!session) {
+      alert('Please create a Yellow Network session first (see sidebar)');
+      return;
+    }
+
+    if (!address) {
+      alert('Please connect your wallet');
+      return;
+    }
+
+    setCreating(true);
     try {
-      const response = await fetch('/api/market/create', {
+      const marketData = {
+        question: newMarket.question,
+        description: newMarket.description,
+        durationMinutes: newMarket.durationMinutes,
+        initialLiquidity: newMarket.initialLiquidity,
+        sessionId: session.sessionId,
+        channelId: session.channelId,
+        creatorAddress: address,
+      };
+
+      console.log('Creating market:', marketData);
+
+      const response = await fetch('http://localhost:3000/api/market/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newMarket),
+        body: JSON.stringify(marketData),
       });
 
+      const data = await response.json();
+
       if (response.ok) {
-        setNewMarket({ question: '', description: '', durationMinutes: 30, yesPrice: 0.5 });
+        alert(`Market created successfully!`);
+        setNewMarket({ 
+          question: '', 
+          description: '', 
+          durationMinutes: 30, 
+          initialLiquidity: 100,
+        });
         setShowCreate(false);
         loadMarkets();
+      } else {
+        throw new Error(data.error || 'Failed to create market');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error creating market:', err);
+      alert(`Failed to create market: ${err.message}`);
+    } finally {
+      setCreating(false);
     }
   };
 
   return (
     <div className="market-list">
       <div className="market-header">
-        <h2>📊 Prediction Markets</h2>
-        <button 
-          className="btn btn-primary"
-          onClick={() => setShowCreate(!showCreate)}
-        >
-          {showCreate ? 'Cancel' : '➕ Create Market'}
-        </button>
+        <div>
+          <h2>Prediction Markets</h2>
+          {session && (
+            <div className="yellow-status">
+              Session: {session.sessionId.slice(0, 12)}... | Balance: {session.depositAmount} USDC
+            </div>
+          )}
+          {!session && <div className="yellow-status">Create a session in sidebar to start</div>}
+        </div>
+        {isAdmin && (
+          <button 
+            className="btn btn-primary"
+            onClick={() => setShowCreate(!showCreate)}
+            disabled={!session || creating}
+          >
+            {showCreate ? 'Cancel' : 'Create Market (Admin)'}
+          </button>
+        )}
+        {!isAdmin && (
+          <div className="admin-only-notice" style={{ color: '#FFD700', fontSize: '14px' }}>
+            Only admin can create markets
+          </div>
+        )}
       </div>
 
       {showCreate && (
@@ -112,20 +192,19 @@ const MarketListNew: React.FC = () => {
               />
             </div>
             <div className="input-group">
-              <label>YES Price (0-1):</label>
+              <label>Initial Liquidity (USDC):</label>
               <input
                 type="number"
-                value={newMarket.yesPrice}
-                onChange={(e) => setNewMarket({ ...newMarket, yesPrice: parseFloat(e.target.value) })}
-                min="0.01"
-                max="0.99"
-                step="0.01"
+                value={newMarket.initialLiquidity}
+                onChange={(e) => setNewMarket({ ...newMarket, initialLiquidity: parseFloat(e.target.value) })}
+                min="10"
+                step="10"
                 className="input"
               />
             </div>
           </div>
-          <button onClick={createMarket} className="btn btn-primary">
-            🚀 Create Market
+          <button onClick={createMarket} className="btn btn-primary" disabled={creating}>
+            {creating ? 'Creating...' : 'Create Market'}
           </button>
         </div>
       )}
@@ -138,26 +217,64 @@ const MarketListNew: React.FC = () => {
         </div>
       ) : (
         <div className="markets-grid">
-          {markets.map((market) => (
-            <div key={market.id} className="market-card">
-              <h3>{market.question}</h3>
-              <p className="market-description">{market.description}</p>
-              <div className="market-prices">
-                <div className="price-box yes">
-                  <span className="label">YES</span>
-                  <span className="price">${(market.yesPrice * 100).toFixed(0)}¢</span>
+          {markets.map((market) => {
+            const odds = {
+              yes: market.totalPool > 0 ? Math.round((market.yesPool / market.totalPool) * 100) : 50,
+              no: market.totalPool > 0 ? Math.round((market.noPool / market.totalPool) * 100) : 50,
+            };
+            
+            return (
+              <div key={market.id} className={`market-card ${market.status}`}>
+                <div className="market-status">
+                  {market.status === 'open' && 'Open'}
+                  {market.status === 'closed' && 'Closed'}
+                  {market.status === 'resolved' && 'Resolved'}
                 </div>
-                <div className="price-box no">
-                  <span className="label">NO</span>
-                  <span className="price">${(market.noPrice * 100).toFixed(0)}¢</span>
+
+                <h3>{market.question}</h3>
+                <p className="market-description">{market.description}</p>
+                
+                <div className="pool-info">
+                  <div className="total-pool">
+                    <span className="label">Total Pool</span>
+                    <span className="value">${market.totalPool.toFixed(2)}</span>
+                  </div>
+                  
+                  <div className="pool-breakdown">
+                    <div className="yes-pool">
+                      <span className="label">YES</span>
+                      <span className="amount">${market.yesPool.toFixed(2)}</span>
+                      <span className="percentage">{odds.yes}%</span>
+                    </div>
+                    <div className="no-pool">
+                      <span className="label">NO</span>
+                      <span className="amount">${market.noPool.toFixed(2)}</span>
+                      <span className="percentage">{odds.no}%</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="odds-bar">
+                  <div className="yes-bar" style={{ width: `${odds.yes}%` }} />
+                  <div className="no-bar" style={{ width: `${odds.no}%` }} />
+                </div>
+
+                <div className="market-info">
+                  <span>Ends: {new Date(market.endTime).toLocaleTimeString()}</span>
+                </div>
+                
+                {market.status === 'resolved' && (
+                  <div className="outcome">
+                    Outcome: <strong>{market.outcome}</strong>
+                  </div>
+                )}
+                
+                <div className="creator-info">
+                  Created by {market.creatorAddress?.slice(0, 6)}...{market.creatorAddress?.slice(-4)}
                 </div>
               </div>
-              <div className="market-info">
-                <span>📈 Volume: ${market.totalVolume.toFixed(2)}</span>
-                <span>⏱️ Ends: {new Date(market.endTime).toLocaleTimeString()}</span>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

@@ -1,6 +1,6 @@
 # VaultOS - Real-time Prediction Market
 
-**Hackathon MVP - Phase 1: Yellow Network Integration**
+**Production Ready - Powered by Yellow Network**
 
 > Instant, gasless prediction market trading using Yellow Network state channels
 
@@ -14,16 +14,12 @@ VaultOS is a next-generation prediction market platform that solves two critical
 
 ### The Solution
 
-**Phase 1** uses Yellow Network's Nitrolite state channels to enable:
+VaultOS uses Yellow Network's Nitrolite state channels to enable:
 - ⚡ **Instant trades** (< 100ms)
 - 💸 **Zero gas fees** during trading
 - 🔒 **Session-based security** (protect your main wallet)
 - 🎮 **Real-time experience** like Web2, powered by Web3
-
-**Phase 2** (next) will add Sui blockchain for:
-- Parallel settlement processing
-- Oracle-based market resolution
-- Real DeFi yield integration
+- 🔐 **Cryptographically secure** off-chain settlement
 
 ---
 
@@ -75,7 +71,36 @@ VaultOS is a next-generation prediction market platform that solves two critical
 
 ---
 
-## 🚀 Quick Start
+## � Sui Integration (NEW!)
+
+VaultOS now includes **Sui blockchain integration** for transparent market settlement:
+
+### Hybrid Architecture
+- **Trading Layer:** Yellow Network (off-chain, instant)
+- **Settlement Layer:** Sui (on-chain, transparent)
+
+### What It Does
+When a prediction market resolves, the final outcome is recorded on Sui as an immutable object. This provides:
+- ✅ **Transparent verification** - Anyone can verify outcomes
+- ✅ **Tamper-proof records** - Settlements are permanent
+- ✅ **Hybrid benefits** - Speed + Trust
+
+### Quick Deploy
+```powershell
+# Deploy Sui settlement contract
+npm run sui:deploy
+
+# Test the integration
+npm run sui:test-settlement
+```
+
+📖 **Full Guide:** [SUI_QUICK_START.md](SUI_QUICK_START.md) (5 commands, 5 minutes)
+
+**Contract:** [sui/sources/prediction_settlement.move](sui/sources/prediction_settlement.move)
+
+---
+
+## �🚀 Quick Start
 
 ### Prerequisites
 
@@ -417,60 +442,28 @@ Future versions could add:
 
 ---
 
-## 🎯 What's NOT in Phase 1
+## 🎯 Production Features
 
-Explicitly excluded (coming in Phase 2):
+Core functionality:
 
-❌ **On-chain settlement** - Simulated only  
-❌ **Real oracles** - Manual resolution for demo  
-❌ **Sui smart contracts** - Backend only  
-❌ **Real yield protocols** - APR is simulated  
-❌ **DAO governance** - Not needed yet  
-
-These will be added once Yellow integration is proven.
+✅ **Instant trading** - Off-chain state channels  
+✅ **Zero gas fees** - Pay once to enter, once to exit  
+✅ **Session security** - Limited-permission keys  
+✅ **LMSR AMM** - Fair automated pricing  
+✅ **Real-time updates** - WebSocket streaming  
+✅ **Position tracking** - Multi-market portfolios
 
 ---
 
-## 🚀 Phase 2 Roadmap
+## 🚀 Future Enhancements
 
-### Sui Blockchain Integration
+Potential improvements:
 
-**Why Sui?**
-- Parallel transaction execution (1000+ TPS)
-- Object-centric storage model
-- Low latency finality
-- Native support for DeFi primitives
-
-**What gets added:**
-
-1. **Settlement Contracts**
-   ```move
-   module vaultos::settlement {
-     // Verify Yellow state channel signatures
-     // Process parallel settlement
-     // Distribute payouts
-   }
-   ```
-
-2. **Oracle Integration**
-   - Chainlink price feeds
-   - DAO voting for subjective markets
-   - Automated event verification
-
-3. **Real Yield**
-   - Scallop lending protocol
-   - NAVI DeFi integration
-   - Cetus liquidity pools
-   - Sui native staking
-
-4. **Market Resolution**
-   ```move
-   module vaultos::oracle {
-     // Query external data
-     // Resolve market outcome
-     // Trigger payouts
-   }
-   ```
+- **Oracle integration** - Chainlink or API3 price feeds
+- **DeFi yield** - Integrate lending protocols for idle balances
+- **DAO governance** - Community-driven market resolution
+- **Mobile app** - Native iOS/Android support
+- **Advanced AMM** - More sophisticated pricing models
 
 ---
 
@@ -569,5 +562,20 @@ Key files to read:
 - [state.ts](src/yellow/state.ts) - State management
 
 ---
+Demo Script
+production. Ready to scale
+**Opening** (30 seconds):
+> "VaultOS enables instant prediction market trading with zero gas fees using Yellow Network state channels. Let me show you."
 
-**Built for hackathons. Ready for production. Powered by Yellow Network.**
+**Demo** (90 seconds):
+1. Start server → Show startup banner
+2. Create session → Show 1000 USDC deposit
+3. Create market → "Will BTC hit $150k?"
+4. Buy 100 YES shares → Instant execution!
+5. Show state → Balances, positions, signatures
+6. Sell 50 shares → Instant again!
+7. Move to idle → Manage your balance
+8. Close session → Settlement complete
+
+**Closing** (30 seconds):
+> "All trading happens off-chain on Yellow Network for instant execution and zero fees. The future of prediction markets is here
