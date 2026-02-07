@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAccount } from 'wagmi';
 
 interface Balance {
@@ -8,165 +8,85 @@ interface Balance {
   total: number;
 }
 
-interface Position {
-  marketId: string;
-  yesShares: number;
-  noShares: number;
-  invested: number;
-}
+// MOCK BALANCE DATA
+const MOCK_BALANCE: Balance = {
+  active: 750.00,
+  idle: 200.00,
+  yield: 2.45,
+  total: 952.45
+};
 
-const BalanceDisplayNew: React.FC = () => {
+const BalanceDisplay: React.FC = () => {
   const { address, isConnected } = useAccount();
-  const [balance, setBalance] = useState<Balance | null>(null);
-  const [positions, setPositions] = useState<Position[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (isConnected && address) {
-      const sessionData = localStorage.getItem(`session_${address}`);
-      if (sessionData) {
-        loadBalance();
-      }
-    }
-  }, [address, isConnected]);
-
-  const loadBalance = async () => {
-    if (!address) return;
-    
-    const sessionData = localStorage.getItem(`session_${address}`);
-    if (!sessionData) return;
-
-    const session = JSON.parse(sessionData);
-    
-    setLoading(true);
-    try {
-      const response = await fetch(`/api/state/${session.sessionId}`);
-      if (response.ok) {
-        const data = await response.json();
-        setBalance(data.state.balances);
-        setPositions(data.state.positions || []);
-      }
-    } catch (err) {
-      console.error('Error loading balance:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const moveToIdle = async () => {
-    const amount = prompt('Enter amount to move to idle (earns 5% APR):');
-    if (!amount || !address) return;
-
-    const sessionData = localStorage.getItem(`session_${address}`);
-    if (!sessionData) return;
-
-    const session = JSON.parse(sessionData);
-
-    try {
-      const response = await fetch('/api/balance/move-to-idle', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId: session.sessionId,
-          amount: parseFloat(amount),
-        }),
-      });
-
-      if (response.ok) {
-        loadBalance();
-      }
-    } catch (err) {
-      console.error('Error moving to idle:', err);
-    }
-  };
-
-  const requestRefund = async () => {
-    if (!confirm('Request partial refund (max 25%)?')) return;
-    if (!address) return;
-
-    const sessionData = localStorage.getItem(`session_${address}`);
-    if (!sessionData) return;
-
-    const session = JSON.parse(sessionData);
-
-    try {
-      const response = await fetch('/api/balance/refund', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: session.sessionId }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        alert(`Refund successful: ${data.refundAmount} USDC`);
-        loadBalance();
-      }
-    } catch (err) {
-      console.error('Error requesting refund:', err);
-    }
-  };
-
-  if (!isConnected) {
-    return null;
-  }
+  const [balance] = useState<Balance>(MOCK_BALANCE);
 
   return (
     <div className="balance-display">
-      <h2>💰 Balance</h2>
+      <h2>[ BALANCE_INFO ]</h2>
+      
+      <div style={{ padding: '20px' }}>
+        {!isConnected ? (
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', textAlign: 'center' }}>
+            {'> Connect wallet to view balance'}
+          </p>
+        ) : (
+          <>
+            <div className="balance-card">
+              <div className="balance-item">
+                <span>ACTIVE TRADING:</span>
+                <strong>${balance.active.toFixed(2)}</strong>
+              </div>
+              <div className="balance-item">
+                <span>IDLE (5% APR):</span>
+                <strong>${balance.idle.toFixed(2)}</strong>
+              </div>
+              <div className="balance-item">
+                <span>YIELD EARNED:</span>
+                <strong style={{ color: '#4ade80' }}>+${balance.yield.toFixed(2)}</strong>
+              </div>
+              <div className="balance-total">
+                <span>TOTAL:</span>
+                <strong>${balance.total.toFixed(2)}</strong>
+              </div>
+            </div>
 
-      {loading ? (
-        <p>Loading...</p>
-      ) : balance ? (
-        <>
-          <div className="balance-card">
-            <div className="balance-item">
-              <span>Active:</span>
-              <strong>${balance.active.toFixed(2)}</strong>
+            <div className="balance-actions">
+              <button 
+                className="btn btn-secondary btn-sm"
+                onClick={() => alert('Mock: Move funds to idle (earns 5% APR)')}
+              >
+                [MOVE TO IDLE]
+              </button>
+              <button 
+                className="btn btn-secondary btn-sm"
+                onClick={() => alert('Mock: Request partial refund (max 25%)')}
+              >
+                [REQUEST REFUND]
+              </button>
             </div>
-            <div className="balance-item">
-              <span>Idle (5% APR):</span>
-              <strong>${balance.idle.toFixed(2)}</strong>
-            </div>
-            <div className="balance-item">
-              <span>Yield Earned:</span>
-              <strong>${balance.yield.toFixed(2)}</strong>
-            </div>
-            <div className="balance-total">
-              <span>Total:</span>
-              <strong>${balance.total.toFixed(2)}</strong>
-            </div>
-          </div>
 
-          <div className="balance-actions">
-            <button onClick={moveToIdle} className="btn btn-secondary btn-sm">
-              📊 Move to Idle
-            </button>
-            <button onClick={requestRefund} className="btn btn-secondary btn-sm">
-              💸 Request Refund
-            </button>
-            <button onClick={loadBalance} className="btn btn-secondary btn-sm">
-              🔄 Refresh
-            </button>
-          </div>
-
-          {positions.length > 0 && (
             <div className="positions">
-              <h3>Positions</h3>
-              {positions.map((pos, idx) => (
-                <div key={idx} className="position-item">
-                  <p><strong>Market:</strong> {pos.marketId.slice(0, 15)}...</p>
-                  <p>YES: {pos.yesShares} | NO: {pos.noShares}</p>
-                  <p>Invested: ${pos.invested.toFixed(2)}</p>
-                </div>
-              ))}
+              <h3>POSITIONS</h3>
+              <div className="position-item">
+                <p style={{ marginBottom: '5px' }}>
+                  <strong style={{ color: 'var(--accent-retro)' }}>BTC $150K Market</strong>
+                </p>
+                <p>YES: 100 shares @ $0.62</p>
+                <p>Invested: $62.00</p>
+              </div>
+              <div className="position-item">
+                <p style={{ marginBottom: '5px' }}>
+                  <strong style={{ color: 'var(--accent-retro)' }}>ETH Upgrade Market</strong>
+                </p>
+                <p>YES: 50 shares @ $0.78</p>
+                <p>Invested: $39.00</p>
+              </div>
             </div>
-          )}
-        </>
-      ) : (
-        <p className="info-message">Create a session to view balance</p>
-      )}
+          </>
+        )}
+      </div>
     </div>
   );
 };
 
-export default BalanceDisplayNew;
+export default BalanceDisplay;
