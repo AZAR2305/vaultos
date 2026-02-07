@@ -37,7 +37,7 @@ const PositionsView: React.FC = () => {
 
     try {
       setLoading(true);
-      const response = await fetch(`/api/positions/${address}`);
+      const response = await fetch(`http://localhost:3000/api/positions/${address}`);
       
       if (response.ok) {
         const data = await response.json();
@@ -52,6 +52,40 @@ const PositionsView: React.FC = () => {
       setError('Network error loading positions');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRefund = async (position: Position) => {
+    if (!address) return;
+
+    const confirmed = window.confirm(
+      `Request 25% refund for ${position.shares.toFixed(0)} ${position.outcome} shares?\n\nYou will receive: $${(position.currentValue * 0.25).toFixed(2)} USDC`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const response = await fetch('http://localhost:3000/api/positions/refund', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          marketId: position.marketId,
+          userAddress: address,
+          outcome: position.outcome
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        alert(`✅ Refund successful!\n\nReceived: $${data.refund.refundAmount.toFixed(2)} USDC (25%)`);
+        fetchPositions(); // Refresh positions
+      } else {
+        const errorData = await response.json();
+        alert('❌ Refund failed: ' + errorData.error);
+      }
+    } catch (err) {
+      console.error('Refund error:', err);
+      alert('❌ Network error processing refund');
     }
   };
 
@@ -178,187 +212,35 @@ const PositionsView: React.FC = () => {
                     </span>
                   </div>
                 </div>
+
+                {position.marketStatus === 'OPEN' && (
+                  <div className="position-actions" style={{ marginTop: '15px', textAlign: 'right' }}>
+                    <button 
+                      onClick={() => handleRefund(position)}
+                      className="btn-refund"
+                      style={{
+                        padding: '8px 16px',
+                        background: '#FFD700',
+                        color: '#000',
+                        border: '2px solid #FFD700',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontWeight: 'bold',
+                        fontFamily: 'Space Mono, monospace',
+                        textTransform: 'uppercase',
+                        fontSize: '0.85rem'
+                      }}
+                      title="Get 25% of your position value back"
+                    >
+                      [ REQUEST 25% REFUND ]
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
         </>
       )}
-
-      <style jsx>{`
-        .positions-container {
-          padding: 20px;
-          max-width: 1200px;
-          margin: 0 auto;
-        }
-
-        .positions-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 20px;
-        }
-
-        .btn-refresh {
-          padding: 8px 16px;
-          background: #4CAF50;
-          color: white;
-          border: none;
-          border-radius: 4px;
-          cursor: pointer;
-        }
-
-        .btn-refresh:hover {
-          background: #45a049;
-        }
-
-        .positions-summary {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-          gap: 15px;
-          margin-bottom: 30px;
-          padding: 20px;
-          background: #f5f5f5;
-          border-radius: 8px;
-        }
-
-        .summary-item {
-          display: flex;
-          flex-direction: column;
-          gap: 5px;
-        }
-
-        .summary-item .label {
-          font-size: 0.9em;
-          color: #666;
-        }
-
-        .summary-item .value {
-          font-size: 1.2em;
-          font-weight: bold;
-        }
-
-        .positions-list {
-          display: grid;
-          gap: 20px;
-        }
-
-        .position-card {
-          background: white;
-          border: 1px solid #ddd;
-          border-radius: 8px;
-          padding: 20px;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        .position-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          margin-bottom: 15px;
-          padding-bottom: 15px;
-          border-bottom: 1px solid #eee;
-        }
-
-        .position-header h3 {
-          margin: 0;
-          font-size: 1.1em;
-          flex: 1;
-        }
-
-        .badge {
-          padding: 4px 12px;
-          border-radius: 12px;
-          font-size: 0.85em;
-          font-weight: 600;
-          text-transform: uppercase;
-        }
-
-        .badge.active {
-          background: #4CAF50;
-          color: white;
-        }
-
-        .badge.frozen, .badge.resolved {
-          background: #FF9800;
-          color: white;
-        }
-
-        .badge.settled {
-          background: #9E9E9E;
-          color: white;
-        }
-
-        .position-details {
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-        }
-
-        .detail-row {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        }
-
-        .detail-label {
-          color: #666;
-          font-size: 0.95em;
-        }
-
-        .detail-value {
-          font-weight: 600;
-        }
-
-        .outcome-badge {
-          padding: 4px 12px;
-          border-radius: 12px;
-          font-size: 0.9em;
-          font-weight: 600;
-        }
-
-        .outcome-badge.yes {
-          background: #4CAF50;
-          color: white;
-        }
-
-        .outcome-badge.no {
-          background: #f44336;
-          color: white;
-        }
-
-        .profit {
-          color: #4CAF50;
-        }
-
-        .loss {
-          color: #f44336;
-        }
-
-        .neutral {
-          color: #666;
-        }
-
-        .empty-state, .loading-state {
-          text-align: center;
-          padding: 60px 20px;
-          color: #666;
-        }
-
-        .hint {
-          margin-top: 10px;
-          font-size: 0.9em;
-          color: #999;
-        }
-
-        .error-message {
-          padding: 12px;
-          background: #ffebee;
-          border: 1px solid #ef5350;
-          border-radius: 4px;
-          color: #c62828;
-          margin-bottom: 20px;
-        }
-      `}</style>
     </div>
   );
 };

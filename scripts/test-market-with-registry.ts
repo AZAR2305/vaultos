@@ -95,6 +95,12 @@ async function connectYellowWithStateMachine(
 
     user.ws.on('message', async (data) => {
         const response = JSON.parse(data.toString());
+        
+        if (response.error) {
+            console.error(`❌ Yellow Error:`, response.error);
+            return;
+        }
+
         const messageType = response.res?.[1];
 
         // Handle auth challenge

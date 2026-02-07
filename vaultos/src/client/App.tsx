@@ -1,383 +1,334 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import WalletConnect from './components/WalletConnect';
 import SessionManager from './components/SessionManager';
-import MarketDashboard from './components/MarketDashboard';
-import BalanceDisplayNew from './components/BalanceDisplayNew';
+import MarketList from './components/MarketList';
+import TradePanel from './components/TradePanel';
+import BalanceDisplay from './components/BalanceDisplay';
 import PositionsView from './components/PositionsView';
+import LedgerBalanceCard from './components/LedgerBalanceCard';
+import MarketResolutionPanel from './components/MarketResolutionPanel';
+import TradeHistory from './components/TradeHistory';
+import CommunityChatMonitor from './components/CommunityChatMonitor';
 
 const App = () => {
-  const [currentView, setCurrentView] = useState<'markets' | 'positions' | 'about'>('markets');
+  const [currentView, setCurrentView] = useState<'landing' | 'profile' | 'dashboard' | 'markets' | 'trade' | 'admin' | 'community'>('landing');
+  const [systemTime, setSystemTime] = useState('');
+  const [isAdmin, setIsAdmin] = useState(false); // Set to true for admin access
+
+  useEffect(() => {
+    function updateClock() {
+      const now = new Date();
+      const timeStr =
+        now.getHours().toString().padStart(2, '0') +
+        ':' +
+        now.getMinutes().toString().padStart(2, '0') +
+        ':' +
+        now.getSeconds().toString().padStart(2, '0');
+      setSystemTime(`SYS_UP: ${timeStr} | GAS: 0 GWEI | STATUS: ONLINE`);
+    }
+    updateClock();
+    const interval = setInterval(updateClock, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div className="app">
-      <style>{`
-        .app {
-          min-height: 100vh;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        }
+      {currentView === 'landing' ? (
+        // LANDING PAGE - No header, full screen hero
+        <div className="landing-page">
+          {/* Hero Section with App Name */}
+          <div className="landing-hero">
+            <div className="hero-glitch">
+              <p className="hero-subtitle">{'[ INITIALIZING PROTOCOL... ]'}</p>
+              <h1 className="app-title">VAULTOS</h1>
+              <p className="hero-tagline">NEXT-GEN PREDICTION MARKETS</p>
+              <div className="hero-specs">
+                <span>YELLOW NETWORK</span>
+                <span className="separator">•</span>
+                <span>ZERO GAS</span>
+                <span className="separator">•</span>
+                <span>INSTANT TRADES</span>
+              </div>
+            </div>
 
-        .header {
-          background: rgba(255, 255, 255, 0.95);
-          backdrop-filter: blur(10px);
-          padding: 20px 40px;
-          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-          border-bottom: 3px solid #667eea;
-        }
-
-        .header h1 {
-          margin: 0;
-          font-size: 36px;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
-        }
-
-        .subtitle {
-          margin: 5px 0 0 0;
-          color: #6c757d;
-          font-size: 14px;
-        }
-
-        .tech-stack {
-          display: flex;
-          gap: 15px;
-          margin-top: 10px;
-          flex-wrap: wrap;
-        }
-
-        .tech-badge {
-          display: inline-flex;
-          align-items: center;
-          gap: 5px;
-          padding: 6px 12px;
-          background: white;
-          border: 2px solid #e9ecef;
-          border-radius: 20px;
-          font-size: 12px;
-          font-weight: 600;
-          color: #495057;
-        }
-
-        .tech-badge.yellow {
-          border-color: #ffc107;
-          color: #856404;
-        }
-
-        .container {
-          display: grid;
-          grid-template-columns: 320px 1fr;
-          gap: 20px;
-          padding: 20px;
-          max-width: 1800px;
-          margin: 0 auto;
-        }
-
-        .sidebar {
-          display: flex;
-          flex-direction: column;
-          gap: 20px;
-        }
-
-        .main-content {
-          background: white;
-          border-radius: 16px;
-          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-          overflow: hidden;
-        }
-
-        .nav {
-          display: flex;
-          background: #f8f9fa;
-          border-bottom: 2px solid #dee2e6;
-          padding: 0;
-        }
-
-        .nav-btn {
-          flex: 1;
-          padding: 18px 24px;
-          border: none;
-          background: transparent;
-          cursor: pointer;
-          font-size: 16px;
-          font-weight: 600;
-          color: #6c757d;
-          transition: all 0.3s ease;
-          border-bottom: 3px solid transparent;
-        }
-
-        .nav-btn:hover {
-          background: rgba(102, 126, 234, 0.1);
-          color: #667eea;
-        }
-
-        .nav-btn.active {
-          background: white;
-          color: #667eea;
-          border-bottom-color: #667eea;
-        }
-
-        .content {
-          padding: 30px;
-        }
-
-        .about-section {
-          max-width: 800px;
-          margin: 0 auto;
-        }
-
-        .about-section h2 {
-          color: #1a1a1a;
-          margin-bottom: 20px;
-        }
-
-        .feature-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-          gap: 20px;
-          margin: 30px 0;
-        }
-
-        .feature-box {
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          color: white;
-          padding: 25px;
-          border-radius: 12px;
-          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-
-        .feature-box h3 {
-          margin: 0 0 10px 0;
-          font-size: 20px;
-        }
-
-        .feature-box p {
-          margin: 0;
-          opacity: 0.95;
-          font-size: 14px;
-          line-height: 1.6;
-        }
-
-        .architecture-section {
-          background: #f8f9fa;
-          border-radius: 12px;
-          padding: 25px;
-          margin: 30px 0;
-        }
-
-        .architecture-section h3 {
-          margin-top: 0;
-          color: #495057;
-        }
-
-        .architecture-layer {
-          background: white;
-          border-left: 4px solid #667eea;
-          padding: 15px;
-          margin: 15px 0;
-          border-radius: 8px;
-        }
-
-        .architecture-layer h4 {
-          margin: 0 0 8px 0;
-          color: #1a1a1a;
-        }
-
-        .architecture-layer p {
-          margin: 0;
-          color: #6c757d;
-          font-size: 14px;
-        }
-
-        .workflow-steps {
-          counter-reset: step;
-          list-style: none;
-          padding: 0;
-        }
-
-        .workflow-steps li {
-          counter-increment: step;
-          padding: 15px;
-          padding-left: 60px;
-          position: relative;
-          margin-bottom: 15px;
-          background: white;
-          border-radius: 8px;
-          border-left: 4px solid #667eea;
-        }
-
-        .workflow-steps li::before {
-          content: counter(step);
-          position: absolute;
-          left: 15px;
-          top: 50%;
-          transform: translateY(-50%);
-          width: 30px;
-          height: 30px;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          color: white;
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-weight: bold;
-        }
-
-        @media (max-width: 1024px) {
-          .container {
-            grid-template-columns: 1fr;
-          }
-
-          .sidebar {
-            grid-row: 2;
-          }
-        }
-      `}</style>
-
-      <header className="header">
-        <h1>🏛️ VaultOS</h1>
-        <p className="subtitle">Instant Prediction Markets with Zero Gas Fees</p>
-        <div className="tech-stack">
-          <span className="tech-badge yellow">⚡ Yellow Network State Channels</span>
-          <span className="tech-badge">🔒 Session Security</span>
-          <span className="tech-badge">💱 AMM Trading</span>
-          <span className="tech-badge">⚡ Instant Settlement</span>
-        </div>
-      </header>
-
-      <div className="container">
-        <div className="sidebar">
-          <WalletConnect />
-          <SessionManager />
-          <BalanceDisplayNew />
-        </div>
-
-        <div className="main-content">
-          <nav className="nav">
-            <button 
-              className={`nav-btn ${currentView === 'markets' ? 'active' : ''}`}
-              onClick={() => setCurrentView('markets')}
-            >
-              📊 Markets
-            </button>
-            <button 
-              className={`nav-btn ${currentView === 'positions' ? 'active' : ''}`}
-              onClick={() => setCurrentView('positions')}
-            >
-              📈 Positions
-            </button>
-            <button 
-              className={`nav-btn ${currentView === 'about' ? 'active' : ''}`}
-              onClick={() => setCurrentView('about')}
-            >
-              ℹ️ About
-            </button>
-          </nav>
-
-          <div className="content">
-            {currentView === 'markets' && <MarketDashboard />}
-            {currentView === 'positions' && <PositionsView />}
-            {currentView === 'about' && (
-              <div className="about-section">
-                <h2>Welcome to VaultOS</h2>
-                <p>
-                  VaultOS is a next-generation prediction market platform that combines the speed of
-                  off-chain trading with the security of blockchain settlement.
-                </p>
-
-                <div className="feature-grid">
-                  <div className="feature-box">
-                    <h3>⚡ Instant Trading</h3>
-                    <p>Trade with sub-second execution and zero gas fees using Yellow Network state channels</p>
-                  </div>
-                  <div className="feature-box">
-                    <h3>🔒 Session Security</h3>
-                    <p>Session keys protect your main wallet while allowing seamless trading</p>
-                  </div>
-                  <div className="feature-box">
-                    <h3>⚡ Instant Settlement</h3>
-                    <p>All trades settle instantly off-chain with cryptographic security</p>
-                  </div>
-                  <div className="feature-box">
-                    <h3>💱 Fair Pricing</h3>
-                    <p>Automated Market Maker ensures fair pricing based on supply and demand</p>
-                  </div>
-                </div>
-
-                <div className="architecture-section">
-                  <h3>🏗️ Architecture</h3>
-                  <div className="architecture-layer">
-                    <h4>Trading Layer: Yellow Network State Channels</h4>
-                    <p>
-                      All trades execute instantly off-chain using Yellow Network state channels.
-                      No gas fees, no waiting, no blockchain congestion. State updates are cryptographically
-                      signed and verified by all participants.
-                    </p>
-                  </div>
-                  <div className="architecture-layer">
-                    <h4>Settlement Layer: Off-Chain</h4>
-                    <p>
-                      Markets resolve instantly using Yellow Network's state channel technology.
-                      All positions and payouts are calculated and distributed within the state channel
-                      for maximum speed and zero gas costs.
-                    </p>
-                  </div>
-                  <div className="architecture-layer">
-                    <h4>Security: Session-Based</h4>
-                    <p>
-                      Your main wallet stays safe offline. Session keys with limited allowances
-                      enable trading without exposing your primary private key.
-                    </p>
-                  </div>
-                </div>
-
-                <h3>🚀 How It Works</h3>
-                <ol className="workflow-steps">
-                  <li>
-                    <strong>Connect Your Wallet</strong><br />
-                    Connect your Ethereum-compatible wallet (MetaMask, etc.)
-                  </li>
-                  <li>
-                    <strong>Create a Session</strong><br />
-                    Generate a session key and deposit USDC for trading
-                  </li>
-                  <li>
-                    <strong>Browse Markets</strong><br />
-                    Explore prediction markets on various topics
-                  </li>
-                  <li>
-                    <strong>Trade Instantly</strong><br />
-                    Buy YES or NO shares with instant execution
-                  </li>
-                  <li>
-                    <strong>Track Positions</strong><br />
-                    Monitor your positions in real-time
-                  </li>
-                  <li>
-                    <strong>Claim Winnings</strong><br />
-                    When markets resolve, claim your winnings automatically
-                  </li>
-                </ol>
-
-                <div style={{ 
-                  background: '#fff3cd', 
-                  border: '2px solid #ffc107', 
-                  borderRadius: '12px', 
-                  padding: '20px',
-                  marginTop: '30px'
-                }}>
-                  <h4 style={{ marginTop: 0, color: '#856404' }}>⚡ Powered by Yellow Network</h4>
-                  <p style={{ marginBottom: 0, color: '#856404' }}>
-                    This platform demonstrates the power of state channel technology:
-                    instant trading, zero gas fees, and cryptographically secure settlement.
-                    All off-chain, all the time.
-                  </p>
+            {/* Navigation Cards */}
+            <div className="landing-nav">
+              <div className="nav-card market-card" onClick={() => setCurrentView('markets')}>
+                <div className="market-card-header">OPTION_01 • NAVIGATE</div>
+                <div className="market-card-body">
+                  <h3>MARKETS</h3>
+                  <p className="market-description">Browse prediction markets</p>
                 </div>
               </div>
-            )}
+              <div className="nav-card market-card" onClick={() => setCurrentView('trade')}>
+                <div className="market-card-header">OPTION_02 • NAVIGATE</div>
+                <div className="market-card-body">
+                  <h3>TRADE</h3>
+                  <p className="market-description">Execute instant trades</p>
+                </div>
+              </div>
+              <div className="nav-card market-card" onClick={() => setCurrentView('dashboard')}>
+                <div className="market-card-header">OPTION_03 • NAVIGATE</div>
+                <div className="market-card-body">
+                  <h3>DASHBOARD</h3>
+                  <p className="market-description">View your positions</p>
+                </div>
+              </div>
+              <div className="nav-card market-card" onClick={() => setCurrentView('profile')}>
+                <div className="market-card-header">OPTION_04 • NAVIGATE</div>
+                <div className="market-card-body">
+                  <h3>PROFILE</h3>
+                  <p className="market-description">Manage your account</p>
+                </div>
+              </div>
+              <div className="nav-card market-card" onClick={() => setCurrentView('community')}>
+                <div className="market-card-header">OPTION_05 • NAVIGATE</div>
+                <div className="market-card-body">
+                  <h3>COMMUNITY</h3>
+                  <p className="market-description">Join market discussions</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Stats Bar */}
+            <div className="stats-bar">
+              <div className="stat-item">
+                <div className="stat-val">&lt;100ms</div>
+                <div className="stat-label">Trade Latency</div>
+              </div>
+              <div className="stat-item">
+                <div className="stat-val">0%</div>
+                <div className="stat-label">Gas Fees</div>
+              </div>
+              <div className="stat-item">
+                <div className="stat-val">5%</div>
+                <div className="stat-label">Idle APR</div>
+              </div>
+              <div className="stat-item">
+                <div className="stat-val">25%</div>
+                <div className="stat-label">Refundable</div>
+              </div>
+            </div>
+
+            {/* Features */}
+            <div className="features">
+              <div className="feature-card">
+                <h3>⚡ INSTANT TRADING</h3>
+                <p>
+                  Execute trades in &lt;100ms through Yellow Network's off-chain state channels. 
+                  No gas fees, no waiting. Pure speed.
+                </p>
+              </div>
+              <div className="feature-card">
+                <h3>🔐 SESSION SECURITY</h3>
+                <p>
+                  Session keys protect your main wallet while enabling seamless trading. 
+                  Your assets stay safe in your control.
+                </p>
+              </div>
+              <div className="feature-card">
+                <h3>💰 YIELD GENERATION</h3>
+                <p>
+                  Idle collateral automatically earns 5% APR. Your money works for you 
+                  even when you're not trading.
+                </p>
+              </div>
+              <div className="feature-card">
+                <h3>🔄 PARTIAL REFUNDS</h3>
+                <p>
+                  Unlike traditional prediction markets, recover up to 25% of your capital 
+                  before market resolution.
+                </p>
+              </div>
+            </div>
+
+            {/* Terminal Section */}
+            <div className="terminal-section">
+              <div className="terminal-row">
+                <span className="prompt">{'user@vaultos:~$'}</span>
+                <span className="command">query market_status --all</span>
+              </div>
+              <div className="terminal-row">
+                <span className="output">{'> Scanning active prediction markets...'}</span>
+              </div>
+              <div className="terminal-row">
+                <span className="output">{'[████████████████] 100% - MARKET_ENGINE: OPERATIONAL'}</span>
+              </div>
+              <div className="terminal-row">
+                <span className="output">{'[████████████████] 100% - YELLOW_NETWORK: CONNECTED'}</span>
+              </div>
+              <div className="terminal-row">
+                <span className="output">{'[████████████████] 100% - SUI_SETTLEMENT: ACTIVE'}</span>
+              </div>
+              <div className="terminal-row">
+                <span className="output">{'[████████████████] 100% - WALRUS_STORAGE: SYNCED'}</span>
+              </div>
+              <div className="terminal-row">
+                <span className="prompt">{'user@vaultos:~$'}</span>
+                <span className="command">start trading_session</span>
+              </div>
+              <div className="terminal-row">
+                <span className="output">
+                  {"> Ready to trade. Connect wallet to begin... "}
+                  <span className="cursor-blink">_</span>
+                </span>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
+      ) : (
+        // APP VIEWS - Header + Content
+        <>
+          <div className="header">
+            <h1 className="header-title">
+              <span className="title-bracket">[</span>
+              <span className="title-text">VAULTOS</span>
+              <span className="title-bracket">]</span>
+            </h1>
+            <div className="status-bar">
+              <span>{systemTime}</span>
+            </div>
+            <nav>
+              <button
+                className={currentView === 'markets' ? 'active' : ''}
+                onClick={() => setCurrentView('markets')}
+              >
+                [MARKETS]
+              </button>
+              <button
+                className={currentView === 'trade' ? 'active' : ''}
+                onClick={() => setCurrentView('trade')}
+              >
+                [TRADE]
+              </button>
+              <button
+                className={currentView === 'dashboard' ? 'active' : ''}
+                onClick={() => setCurrentView('dashboard')}
+              >
+                [DASHBOARD]
+              </button>
+              <button
+                className={currentView === 'profile' ? 'active' : ''}
+                onClick={() => setCurrentView('profile')}
+              >
+                [PROFILE]
+              </button>
+              <button
+                className={currentView === 'community' ? 'active' : ''}
+                onClick={() => setCurrentView('community')}
+              >
+                [COMMUNITY]
+              </button>
+              {isAdmin && (
+                <button
+                  className={currentView === 'admin' ? 'active' : ''}
+                  onClick={() => setCurrentView('admin')}
+                  style={{ borderColor: 'var(--accent-retro)', color: 'var(--accent-retro)' }}
+                >
+                  [ADMIN]
+                </button>
+              )}
+              <button
+                onClick={() => setCurrentView('landing')}
+                style={{ marginLeft: 'auto', borderColor: 'var(--accent-retro)' }}
+              >
+                [HOME]
+              </button>
+            </nav>
+          </div>
+
+          <div className="main-container">
+            {/* Sidebar for certain views */}
+            {(currentView === 'profile' || currentView === 'dashboard' || currentView === 'trade') && (
+              <div className="sidebar">
+                <WalletConnect />
+                <SessionManager />
+                <BalanceDisplay />
+                <LedgerBalanceCard />
+              </div>
+            )}
+
+            <div className="content">
+              {currentView === 'profile' && (
+                <div className="profile-view">
+                  {/* Profile content managed via sidebar components */}
+                </div>
+              )}
+
+              {currentView === 'dashboard' && (
+                <div className="dashboard-view">
+                  <h2 style={{ fontSize: '2rem', fontFamily: 'Syne, sans-serif', fontWeight: 800, textTransform: 'uppercase', marginBottom: '20px' }}>
+                    Trading Dashboard
+                  </h2>
+                  <p style={{ color: 'var(--accent-retro)', marginBottom: '30px' }}>
+                    {'[ YOUR POSITIONS & BALANCE ]'}
+                  </p>
+                  
+                  <div className="dashboard-grid">
+                    {/* Positions View */}
+                    <div className="dashboard-section">
+                      <PositionsView />
+                    </div>
+                    
+                    {/* Trade History */}
+                    <div className="dashboard-section">
+                      <TradeHistory />
+                    </div>
+
+                    {/* Community Chat */}
+                    <div className="dashboard-section">
+                      <CommunityChatMonitor />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {currentView === 'markets' && <MarketList />}
+              
+              {currentView === 'trade' && (
+                <div>
+                  <TradePanel />
+                  <div style={{ marginTop: '30px' }}>
+                    <TradeHistory />
+                  </div>
+                  <div style={{ marginTop: '30px' }}>
+                    <CommunityChatMonitor />
+                  </div>
+                </div>
+              )}
+
+              {currentView === 'community' && (
+                <div className="community-view">
+                  <h2 style={{ fontSize: '2rem', fontFamily: 'Syne, sans-serif', fontWeight: 800, textTransform: 'uppercase', marginBottom: '20px' }}>
+                    Community Hub
+                  </h2>
+                  <p style={{ color: 'var(--accent-retro)', marginBottom: '30px' }}>
+                    {'[ REAL-TIME MARKET DISCUSSION ]'}
+                  </p>
+                  <CommunityChatMonitor />
+                </div>
+              )}
+              
+              {currentView === 'admin' && (
+                <div className="admin-view">
+                  <h2 style={{ fontSize: '2rem', fontFamily: 'Syne, sans-serif', fontWeight: 800, textTransform: 'uppercase', marginBottom: '20px', color: 'var(--accent-retro)' }}>
+                    ⚡ ADMIN CONTROL PANEL
+                  </h2>
+                  <p style={{ color: 'var(--text-secondary)', marginBottom: '30px' }}>
+                    {'> System administration and market resolution'}
+                  </p>
+                  
+                  <MarketResolutionPanel isAdmin={isAdmin} />
+                  
+                  <div style={{ marginTop: '30px' }}>
+                    <TradeHistory />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };

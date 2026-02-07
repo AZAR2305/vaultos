@@ -7,6 +7,7 @@ import tradeRoutes from './routes/trade';
 import balanceRoutes from './routes/balance';
 import stateRoutes from './routes/state';
 import yellowRoutes from './routes/yellow';
+import positionsRoutes from './routes/positions';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -40,6 +41,7 @@ app.use('/api/trade', tradeRoutes);
 app.use('/api/balance', balanceRoutes);
 app.use('/api/state', stateRoutes);
 app.use('/api/yellow', yellowRoutes);
+app.use('/api/positions', positionsRoutes);
 
 app.listen(PORT, () => {
   console.log(`\n🟢 ====================================`);

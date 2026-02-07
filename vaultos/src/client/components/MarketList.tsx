@@ -1,20 +1,12 @@
 /**
  * Prediction Markets List
  * 
- * ADMIN ONLY: Market creation
- * - Only hardcoded admin wallet can create markets
- * - Regular users can only view and trade
- * 
- * Markets are created via Yellow Network:
- * - Market state stored OFF-CHAIN
- * - All trades execute OFF-CHAIN
- * - Settlement happens ON-CHAIN (Phase 2)
+ * Connected to backend API at /api/markets
+ * Shows prediction market cards with retro-brutalist theme
+ * Markets display YES/NO prices, volume, and timing
  */
 import React, { useState, useEffect } from 'react';
 import { useAccount } from 'wagmi';
-
-// HARDCODED ADMIN WALLET (replace with your actual admin address)
-const ADMIN_WALLET = '0xFefa60F5aA4069F96b9Bf65c814DDb3A604974e1'.toLowerCase();
 
 interface Market {
   id: string;
@@ -23,11 +15,14 @@ interface Market {
   description?: string;
   yesPrice: number;
   noPrice: number;
-  yesPool?: number;
-  noPool?: number;
   totalVolume: number;
-  endTime?: number;
-  createdAt?: number;
+  endTime?: string;
+  category: string;
+  status?: string;
+  odds?: {
+    YES: string;
+    NO: string;
+  };
 }
 
 interface MarketListProps {
@@ -38,220 +33,153 @@ interface MarketListProps {
 const MarketList: React.FC<MarketListProps> = ({ session, onSelectMarket }) => {
   const { address } = useAccount();
   const [markets, setMarkets] = useState<Market[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  
-  // Admin market creation form
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [newMarket, setNewMarket] = useState({
-    question: '',
-    description: '',
-    durationMinutes: 60,
-    yesPrice: 0.5,
-  });
 
-  // Check if current user is admin
-  const isAdmin = address?.toLowerCase() === ADMIN_WALLET;
-
-  // Load markets on mount
+  // Fetch markets from backend
   useEffect(() => {
-    loadMarkets();
+    fetchMarkets();
+    const interval = setInterval(fetchMarkets, 5000); // Refresh every 5 seconds
+    return () => clearInterval(interval);
   }, []);
 
-  const loadMarkets = async () => {
-    setLoading(true);
+  const fetchMarkets = async () => {
     try {
-      const response = await fetch('/api/market/list');
+      const response = await fetch('http://localhost:3000/api/markets');
       if (response.ok) {
         const data = await response.json();
-        setMarkets(data.markets || []);
-      }
-    } catch (err) {
-      console.error('Error loading markets:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const createMarket = async () => {
-    if (!session) {
-      setError('Please create a session first');
-      return;
-    }
-
-    if (!newMarket.question.trim()) {
-      setError('Market question is required');
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-
-    try {
-      const response = await fetch('/api/market/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId: session.sessionId,
-          question: newMarket.question,
-          description: newMarket.description,
-          durationMinutes: newMarket.durationMinutes,
-          yesPrice: newMarket.yesPrice,
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Market created:', data);
-        
-        // Reset form
-        setNewMarket({ question: '', description: '', durationMinutes: 60, yesPrice: 0.5 });
-        setShowCreateForm(false);
-        
-        // Reload markets
-        loadMarkets();
+        const formattedMarkets = data.markets.map((m: any) => ({
+          id: m.id,
+          marketId: m.id.toUpperCase(),
+          question: m.question,
+          description: m.description || '',
+          yesPrice: m.odds?.YES ? parseFloat(m.odds.YES) / 100 : 0.5,
+          noPrice: m.odds?.NO ? parseFloat(m.odds.NO) / 100 : 0.5,
+          totalVolume: parseFloat(m.totalVolume) || 0,
+          endTime: m.endTime ? new Date(m.endTime).toLocaleDateString() : 'TBD',
+          category: 'PREDICTION',
+          status: m.status
+        }));
+        setMarkets(formattedMarkets);
+        setError('');
       } else {
-        const errorData = await response.json();
-        setError(errorData.error || 'Failed to create market');
+        setError('Failed to load markets');
       }
     } catch (err) {
-      console.error('Error creating market:', err);
-      setError('Network error creating market');
+      console.error('Error fetching markets:', err);
+      setError('Network error - showing mock data');
+      // Fallback to mock data
+      setMarkets(getMockMarkets());
     } finally {
       setLoading(false);
     }
   };
+
+  const getMockMarkets = (): Market[] => [
+    {
+      id: 'market_1',
+      marketId: 'MARKET_001',
+      question: 'Will BTC reach $150k by end of 2026?',
+      description: 'Bitcoin to hit $150,000 USD per coin before December 31, 2026 23:59 UTC',
+      yesPrice: 0.62,
+      noPrice: 0.38,
+      totalVolume: 125000,
+      endTime: 'Dec 31, 2026',
+      category: 'CRYPTO'
+    },
+    {
+      id: 'market_2',
+      marketId: 'MARKET_002',
+      question: 'Will Ethereum complete Dencun upgrade by Q2 2026?',
+      description: 'Ethereum mainnet successfully deploys Dencun upgrade before June 30, 2026',
+      yesPrice: 0.78,
+      noPrice: 0.22,
+      totalVolume: 89000,
+      endTime: 'Jun 30, 2026',
+      category: 'CRYPTO'
+    }
+  ];
+  const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
+
+  const categories = ['ALL', 'CRYPTO', 'TECH', 'ECONOMICS', 'STOCKS', 'SPACE'];
+  const filteredMarkets = selectedCategory === 'ALL' 
+    ? markets 
+    : markets.filter(m => m.category === selectedCategory);
 
   return (
-    <div className="markets-container">
-      <div className="markets-header">
+    <div>
+      <div className="market-header">
         <div>
-          <h1>📊 Prediction Markets</h1>
-          <p className="markets-subtitle">
-            <span className="badge off-chain">⚡ OFF-CHAIN</span>
-            Powered by Yellow Network State Channels
+          <h2 style={{ 
+            fontSize: '2rem', 
+            fontFamily: 'Syne, sans-serif', 
+            fontWeight: 800,
+            textTransform: 'uppercase',
+            marginBottom: '10px'
+          }}>
+            Active Markets
+          </h2>
+          <p style={{ color: 'var(--accent-retro)', fontSize: '0.85rem' }}>
+            {'[ POWERED BY YELLOW NETWORK • ZERO GAS • INSTANT EXECUTION ]'}
           </p>
         </div>
-        
-        {isAdmin && (
-          <button
-            onClick={() => setShowCreateForm(!showCreateForm)}
-            className="btn btn-primary"
-          >
-            {showCreateForm ? 'Cancel' : '➕ Create Market'}
-          </button>
-        )}
       </div>
 
-      {/* ADMIN ONLY: Market Creation Form */}
-      {isAdmin && showCreateForm && (
-        <div className="market-create-form">
-          <div className="form-header">
-            <span className="admin-badge">👑 ADMIN</span>
-            <h3>Create New Prediction Market</h3>
-          </div>
-          
-          <div className="form-group">
-            <label>Market Question *</label>
-            <input
-              type="text"
-              value={newMarket.question}
-              onChange={(e) => setNewMarket({...newMarket, question: e.target.value})}
-              placeholder="e.g., Will BTC reach $100k by end of 2026?"
-              className="input input-large"
-              maxLength={200}
-            />
-          </div>
-          
-          <div className="form-group">
-            <label>Description (Optional)</label>
-            <textarea
-              value={newMarket.description}
-              onChange={(e) => setNewMarket({...newMarket, description: e.target.value})}
-              placeholder="Additional context or resolution criteria..."
-              className="textarea"
-              rows={3}
-              maxLength={500}
-            />
-          </div>
-          
-          <div className="form-group">
-            <label>Duration (Minutes)</label>
-            <input
-              type="number"
-              value={newMarket.durationMinutes}
-              onChange={(e) => setNewMarket({...newMarket, durationMinutes: parseInt(e.target.value)})}
-              min="5"
-              step="5"
-              className="input"
-            />
-          </div>
-          
+      {/* Category Filter */}
+      <div style={{ 
+        display: 'flex', 
+        gap: '10px', 
+        marginBottom: '30px', 
+        flexWrap: 'wrap' 
+      }}>
+        {categories.map(cat => (
           <button
-            onClick={createMarket}
-            disabled={loading || !newMarket.question.trim()}
-            className="btn btn-success btn-large"
+            key={cat}
+            onClick={() => setSelectedCategory(cat)}
+            className={`btn btn-sm ${selectedCategory === cat ? 'btn-primary' : 'btn-secondary'}`}
           >
-            {loading ? '⏳ Creating...' : '🚀 Create Market'}
+            [{cat}]
           </button>
-          
-          {error && <div className="error-message">❌ {error}</div>}
-        </div>
-      )}
+        ))}
+      </div>
 
       {/* Markets Grid */}
       <div className="markets-grid">
-        {markets.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-icon">📭</div>
-            <p>No active markets yet</p>
-            {isAdmin && <p className="empty-hint">Create your first market above!</p>}
-          </div>
-        ) : (
-          markets.map((market) => (
-            <div 
-              key={market.id || market.marketId} 
-              className="market-card"
-              onClick={() => onSelectMarket && onSelectMarket(market)}
-            >
-              <div className="market-question">{market.question}</div>
+        {filteredMarkets.map((market) => (
+          <div 
+            key={market.id} 
+            className="market-card"
+            onClick={() => onSelectMarket && onSelectMarket(market)}
+          >
+            <div className="market-card-header">
+              {market.marketId} • {market.category}
+            </div>
+            
+            <div className="market-card-body">
+              <h3>{market.question}</h3>
               
               {market.description && (
-                <div className="market-description">{market.description}</div>
+                <p className="market-description">{market.description}</p>
               )}
               
               <div className="market-prices">
-                <div className="price-option yes">
-                  <span className="price-label">YES</span>
-                  <span className="price-value">{(market.yesPrice * 100).toFixed(1)}¢</span>
+                <div className="price-box yes">
+                  <span className="label">YES</span>
+                  <span className="price">${(market.yesPrice).toFixed(2)}</span>
                 </div>
-                <div className="price-option no">
-                  <span className="price-label">NO</span>
-                  <span className="price-value">{(market.noPrice * 100).toFixed(1)}¢</span>
+                <div className="price-box no">
+                  <span className="label">NO</span>
+                  <span className="price">${(market.noPrice).toFixed(2)}</span>
                 </div>
               </div>
               
-              <div className="market-stats">
-                <div className="stat-item">
-                  <span className="stat-label">Volume</span>
-                  <span className="stat-value">${market.totalVolume?.toFixed(0) || '0'}</span>
-                </div>
-                {market.endTime && (
-                  <div className="stat-item">
-                    <span className="stat-label">Ends</span>
-                    <span className="stat-value">
-                      {new Date(market.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  </div>
-                )}
-              </div>
-              
-              <div className="market-badge">
-                <span className="badge off-chain">⚡ OFF-CHAIN</span>
+              <div className="market-info">
+                <span>VOL: ${(market.totalVolume / 1000).toFixed(0)}K</span>
+                <span>END: {market.endTime}</span>
               </div>
             </div>
-          ))
-        )}
+          </div>
+        ))}
       </div>
     </div>
   );
