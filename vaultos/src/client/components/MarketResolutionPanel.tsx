@@ -83,7 +83,64 @@ const MarketResolutionPanel: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = fals
     } catch (err: any) {
       setActionError(`Network error: ${err.message}`);
     }
-  };bettify:~$'}</span>
+  };
+
+  const handleResolve = async (outcome: 'YES' | 'NO') => {
+    if (!address || !selectedMarketId) return;
+    
+    setActionMessage('');
+    setActionError('');
+
+    try {
+      const response = await fetch(`http://localhost:3000/api/market/${selectedMarketId}/resolve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ outcome, callerAddress: address })
+      });
+
+      if (response.ok) {
+        setActionMessage(`✅ Market resolved! Winner: ${outcome}`);
+        fetchMarkets();
+        // Auto-trigger settlement after a short delay
+        setTimeout(() => handleSettle(), 2000);
+      } else {
+        const error = await response.json();
+        setActionError(`Failed to resolve: ${error.error}`);
+      }
+    } catch (err: any) {
+      setActionError(`Network error: ${err.message}`);
+    }
+  };
+
+  const handleSettle = async () => {
+    if (!selectedMarketId) return;
+    
+    setActionMessage('');
+    setActionError('');
+
+    try {
+      const response = await fetch(`http://localhost:3000/api/market/${selectedMarketId}/settle`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (response.ok) {
+        setActionMessage('✅ Settlement complete! Payouts distributed.');
+        fetchMarkets();
+      } else {
+        const error = await response.json();
+        setActionError(`Failed to settle: ${error.error}`);
+      }
+    } catch (err: any) {
+      setActionError(`Network error: ${err.message}`);
+    }
+  };
+
+  return (
+    <div className="resolution-panel">
+      <div className="terminal-header">
+        <div className="terminal-row">
+          <span className="prompt">{'admin@bettify:~$'}</span>
           <span className="command">access resolution_panel --auth=admin</span>
         </div>
         <div className="terminal-row">
