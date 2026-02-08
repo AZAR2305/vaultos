@@ -32,7 +32,7 @@ app.use(express.json());
 // Health check
 app.get('/', (req, res) => {
   res.json({
-    name: 'VaultOS',
+    name: 'Bettify',
     version: '1.0.0',
     status: 'operational',
     features: [
@@ -72,7 +72,7 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 app.listen(PORT, () => {
   console.log('');
   console.log('╔═══════════════════════════════════════════════════════╗');
-  console.log('║                      VaultOS                          ║');
+  console.log('║                      Bettify                          ║');
   console.log('║     Real-time Prediction Market - Yellow Network      ║');
   console.log('╚═══════════════════════════════════════════════════════╝');
   console.log('');

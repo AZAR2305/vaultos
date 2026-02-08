@@ -1,5 +1,5 @@
 /**
- * MockOracle.ts
+ * Oracle.ts
  * 
  * Simple mock oracle for testing auto-resolution
  * Always resolves YES after market funded
@@ -7,7 +7,7 @@
 
 import { OracleInterface, OracleProof, OracleType, OracleConfig } from './OracleInterface';
 
-export class MockOracle extends OracleInterface {
+export class Oracle extends OracleInterface {
     constructor() {
         const config: OracleConfig = {
             type: OracleType.MANUAL,
@@ -39,7 +39,7 @@ export class MockOracle extends OracleInterface {
             outcome: 1, // YES
             signature: `mock-oracle-${marketId}-${Date.now()}`,
             metadata: {
-                source: 'MockOracle',
+                source: 'Oracle',
                 question: marketQuestion,
                 note: 'Demo mode - always resolves YES'
             }

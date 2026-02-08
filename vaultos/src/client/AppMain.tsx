@@ -60,7 +60,7 @@ const App: React.FC = () => {
           <div className="header-left">
             <h1 className="logo">
               <span className="logo-icon">⚡</span>
-              VaultOS
+              Bettify
             </h1>
             <span className="subtitle">Instant Prediction Markets</span>
           </div>
@@ -103,7 +103,7 @@ const App: React.FC = () => {
           <div className="welcome-screen">
             <div className="welcome-card">
               <div className="welcome-icon">🚀</div>
-              <h2>Welcome to VaultOS</h2>
+              <h2>Welcome to Bettify</h2>
               <p className="welcome-subtitle">
                 Trade on prediction markets with instant execution and zero gas fees
               </p>

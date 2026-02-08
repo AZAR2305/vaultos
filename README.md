@@ -14,7 +14,7 @@ VaultOS is a next-generation prediction market platform that solves two critical
 
 ### The Solution
 
-VaultOS uses Yellow Network's Nitrolite state channels to enable:
+Bettify uses Yellow Network's Nitrolite state channels to enable:
 - ⚡ **Instant trades** (< 100ms)
 - 💸 **Zero gas fees** during trading
 - 🔒 **Session-based security** (protect your main wallet)
