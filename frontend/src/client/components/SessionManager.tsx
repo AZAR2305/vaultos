@@ -62,11 +62,6 @@ const SessionManager: React.FC<SessionManagerProps> = ({ onSessionChange }) => {
       return;
     }
 
-    if (!walletClient) {
-      alert('Wallet client loading, please try again in a moment');
-      return;
-    }
-
     setLoading(true);
     let websocket: WebSocket | null = null;
     
@@ -152,6 +147,15 @@ const SessionManager: React.FC<SessionManagerProps> = ({ onSessionChange }) => {
               const challenge = messageData.challenge_message;
               console.log('🔐 Auth challenge received:', challenge);
               console.log('🔐 Session key:', sessionAccount.address);
+              
+              // Wait for walletClient to be ready
+              if (!walletClient) {
+                console.error('❌ Wallet client not ready yet');
+                setStatusMessage('❌ Wallet client loading, please reconnect wallet and try again');
+                websocket?.close();
+                setLoading(false);
+                return;
+              }
               
               // Create EIP-712 signer with user's wallet
               const authParamsForSigning = {
