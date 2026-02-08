@@ -24,6 +24,21 @@ const YTEST_USD_ADDRESS = '0xDB9F293e3898c9E5536A3be1b0C56c89d2b32DEb';
 const CHAIN_ID = 84532;
 
 /**
+ * Health check - verify server configuration
+ * GET /api/yellow/health
+ */
+router.get('/health', (req, res) => {
+    const hasPrivateKey = !!process.env.PRIVATE_KEY;
+    const privateKeyLength = process.env.PRIVATE_KEY?.length || 0;
+    
+    res.json({
+        status: hasPrivateKey ? 'configured' : 'missing_config',
+        clearnode: CLEARNODE_URL,
+        privateKey: hasPrivateKey ? `Set (${privateKeyLength} chars)` : 'NOT SET - Configure PRIVATE_KEY in Render environment',
+        message: hasPrivateKey 
+            ? 'Server is configured correctly' 
+            : 'PRIVATE_KEY environment variable must be set on Render',
+        instructions: hasPrivateKey ? null : [\n            '1. Go to Render Dashboard → Your Service → Environment',\n            '2. Add environment variable: PRIVATE_KEY',\n            '3. Value: Your wallet private key (0x...)',\n            '4. Save (service will auto-restart)',\n            '5. Make sure this wallet has ytest.USD tokens from Yellow faucet'\n        ]\n    });\n});\n\n/**
  * Create sandbox channel
  * POST /api/yellow/create-channel
  */
@@ -35,8 +50,14 @@ router.post('/create-channel', async (req, res) => {
     }
 
     if (!process.env.PRIVATE_KEY) {
-        return res.status(500).json({ error: 'Server configuration error' });
+        console.error('❌ PRIVATE_KEY environment variable not set!');
+        return res.status(500).json({ 
+            error: 'Server configuration error: PRIVATE_KEY not set. Please configure Render environment variables.' 
+        });
     }
+
+    console.log('🔐 Starting Yellow Network authentication...');
+    console.log('   Wallet:', walletAddress);
 
     try {
         const account = privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`);
@@ -70,12 +91,15 @@ router.post('/create-channel', async (req, res) => {
 
             const timeout = setTimeout(() => {
                 if (!received) {
+                    console.error('❌ Yellow Network timeout after 30s');
                     ws.close();
-                    reject(new Error('Timeout'));
+                    reject(new Error('Timeout: Yellow Network did not respond in 30 seconds. Please try again.'));
                 }
             }, 30000);
 
             ws.on('open', async () => {
+                console.log('   ✅ WebSocket connected to Yellow Network');
+                console.log('   📤 Sending auth request...');
                 const authMsg = await createAuthRequestMessage(authParams);
                 ws.send(authMsg);
             });
@@ -83,8 +107,19 @@ router.post('/create-channel', async (req, res) => {
             ws.on('message', async (data) => {
                 try {
                     const message = JSON.parse(data.toString());
+                    console.log('   📨 Yellow Network message:', message.res?.[1] || 'unknown');
+
+                    // Check for errors
+                    if (message.error) {
+                        console.error('   ❌ Yellow Network error:', message.error);
+                        clearTimeout(timeout);
+                        ws.close();
+                        reject(new Error(`Yellow Network error: ${JSON.stringify(message.error)}`));
+                        return;
+                    }
 
                     if (message.res && message.res[1] === 'auth_challenge') {
+                        console.log('   🔐 Auth challenge received, signing...');
                         const challengeData = message.res[2];
                         const challenge = challengeData.challenge_message || challengeData.challenge || challengeData;
 
@@ -104,8 +139,11 @@ router.post('/create-channel', async (req, res) => {
                             challenge
                         );
 
+                        console.log('   📤 Sending auth verify...');
                         ws.send(authVerifyMsg);
                     } else if (message.res && message.res[1] === 'auth_verify') {
+                        console.log('   ✅ Authentication successful!');
+                        console.log('   📤 Creating channel...');
                         const channelMsg = await createCreateChannelMessage(
                             sessionSigner,
                             {
@@ -116,34 +154,49 @@ router.post('/create-channel', async (req, res) => {
 
                         ws.send(channelMsg);
                     } else if (message.res && message.res[1] === 'create_channel') {
+                        console.log('   📨 Channel response:', message.res[2]);
                         const channelData = message.res[2];
 
                         if (channelData && channelData.channel_id) {
+                            console.log('   ✅ Channel created:', channelData.channel_id);
                             received = true;
                             clearTimeout(timeout);
                             ws.close();
                             resolve(channelData.channel_id);
                         } else if (channelData && channelData.error) {
+                            console.error('   ❌ Channel creation failed:', channelData.error);
                             clearTimeout(timeout);
                             ws.close();
                             reject(new Error(channelData.error));
+                        } else {
+                            console.error('   ❌ Unexpected channel data:', channelData);
+                            clearTimeout(timeout);
+                            ws.close();
+                            reject(new Error('Invalid channel response from Yellow Network'));
                         }
                     } else if (message.res && message.res[1] === 'error') {
+                        console.error('   ❌ Yellow Network error message:', message.res[2]);
                         const errorData = message.res[2];
                         clearTimeout(timeout);
                         ws.close();
-                        reject(new Error(errorData.error || 'Authentication failed'));
+                        reject(new Error(errorData.error || JSON.stringify(errorData) || 'Authentication failed'));
                     }
-                } catch (error) {
+                } catch (error: any) {
+                    console.error('   ❌ Error processing Yellow Network message:', error.message);
                     clearTimeout(timeout);
                     ws.close();
                     reject(error);
                 }
             });
 
-            ws.on('error', (error) => {
+            ws.on('error', (error: Error) => {
+                console.error('❌ WebSocket error:', error.message);
                 clearTimeout(timeout);
-                reject(error);
+                reject(new Error(`WebSocket connection failed: ${error.message}`));
+            });
+
+            ws.on('close', () => {
+                console.log('   🔌 WebSocket closed');
             });
         });
 
@@ -152,11 +205,14 @@ router.post('/create-channel', async (req, res) => {
             channelId,
             message: 'Channel created successfully'
         });
+        console.log('✅ Complete! Channel ID:', channelId);
     } catch (error: any) {
-        console.error('Channel creation error:', error);
+        console.error('❌ Channel creation error:', error.message);
+        console.error('   Stack:', error.stack);
         res.status(500).json({
             success: false,
-            error: error.message || 'Failed to create channel'
+            error: error.message || 'Failed to create channel',
+            details: 'Check server logs for more information'
         });
     }
 });
