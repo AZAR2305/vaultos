@@ -57,8 +57,13 @@ const SessionManager: React.FC<SessionManagerProps> = ({ onSessionChange }) => {
   }, [address]);
 
   const createSession = async () => {
-    if (!address || !walletClient) {
+    if (!isConnected || !address) {
       alert('Please connect your wallet first');
+      return;
+    }
+
+    if (!walletClient) {
+      alert('Wallet client loading, please try again in a moment');
       return;
     }
 
