@@ -1,13 +1,13 @@
-import { ethers } from 'ethers';
+import { ethers, BrowserProvider, parseEther } from 'ethers';
 
-let provider: ethers.providers.Web3Provider | null = null;
+let provider: BrowserProvider | null = null;
 let signer: ethers.Signer | null = null;
 
 export const connectWallet = async (): Promise<void> => {
     if (window.ethereum) {
-        provider = new ethers.providers.Web3Provider(window.ethereum);
+        provider = new BrowserProvider(window.ethereum);
         await provider.send("eth_requestAccounts", []);
-        signer = provider.getSigner();
+        signer = await provider.getSigner();
     } else {
         console.error("Please install a web3 wallet like MetaMask.");
     }
@@ -24,7 +24,7 @@ export const sendTransaction = async (to: string, amount: string): Promise<void>
     if (signer) {
         const tx = {
             to,
-            value: ethers.utils.parseEther(amount),
+            value: parseEther(amount),
         };
         await signer.sendTransaction(tx);
     } else {
@@ -32,6 +32,6 @@ export const sendTransaction = async (to: string, amount: string): Promise<void>
     }
 };
 
-export const getProvider = (): ethers.providers.Web3Provider | null => {
+export const getProvider = (): BrowserProvider | null => {
     return provider;
 };
