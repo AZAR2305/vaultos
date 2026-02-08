@@ -13,7 +13,7 @@
 import { WebSocket, WebSocketServer } from 'ws';
 import { LmsrAmm, AmmState, AmmResult, toAmmAmount, fromAmmAmount } from './AmmMath.js';
 import { SettlementMath } from './SettlementMath.js';
-import { VaultOSYellowClient } from '../../../../backend-yellow/yellow/vaultos-yellow.js';
+import { VaultOSYellowClient } from '../yellow/vaultos-yellow.js';
 
 // Position for Market (uses BigInt for precision)
 export interface Position {
