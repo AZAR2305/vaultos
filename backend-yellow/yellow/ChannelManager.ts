@@ -4,7 +4,7 @@
  * Allows immediate trading using ledger balance
  */
 
-import { VaultOSYellowClient } from './vaultos-yellow';
+import { BettifyYellowClient } from './bettify-yellow';
 
 export enum ChannelState {
   DISCONNECTED = 'disconnected',
@@ -37,7 +37,7 @@ export interface TradeResult {
 }
 
 export class ChannelManager {
-  private client: VaultOSYellowClient | null = null;
+  private client: BettifyYellowClient | null = null;
   private state: ChannelState = ChannelState.DISCONNECTED;
   private channelPromise: Promise<string | null> | null = null;
 
@@ -46,7 +46,7 @@ export class ChannelManager {
    */
   async initialize(privateKey: `0x${string}`): Promise<void> {
     this.state = ChannelState.AUTHENTICATING;
-    this.client = new VaultOSYellowClient(privateKey);
+    this.client = new BettifyYellowClient(privateKey);
     
     await this.client.connect();
     this.state = ChannelState.AUTHENTICATED;

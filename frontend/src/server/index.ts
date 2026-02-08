@@ -36,7 +36,7 @@ app.use(express.urlencoded({ extended: true }));
 // Health check
 app.get('/', (req, res) => {
   res.json({
-    name: 'VaultOS',
+    name: 'Bettify',
     version: '1.0.0',
     phase: 'Phase 1 - Yellow Network Integration',
     status: 'operational',
@@ -65,7 +65,7 @@ initializeCommunityChat(server);
 
 server.listen(PORT, () => {
   console.log(`\n🟢 ====================================`);
-  console.log(`   VaultOS Server Started`);
+  console.log(`   Bettify Server Started`);
   console.log(`====================================`);
   console.log(`📡 Server: http://localhost:${PORT}`);
   console.log(`💬 Community: ws://localhost:${PORT}/community`);

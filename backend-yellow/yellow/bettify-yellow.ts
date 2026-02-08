@@ -1,5 +1,5 @@
 /**
- * VaultOS Yellow Network Integration (Real SDK)
+ * Bettify Yellow Network Integration (Real SDK)
  * Based on Yellow Network Official Quickstart Guide
  * 
  * Features:
@@ -40,7 +40,7 @@ interface YellowConfig {
     [key: string]: any;
 }
 
-export class VaultOSYellowClient {
+export class BettifyYellowClient {
     private nitroliteClient: NitroliteClient;
     private publicClient: any;
     private walletClient: any;
@@ -162,9 +162,13 @@ export class VaultOSYellowClient {
             address: this.account.address,
             application: 'Yellow',  // Must match EIP-712 domain name
             session_key: sessionAccount.address,
+        const authParams = {
+            address: this.account.address,
+            application: 'Yellow',
+            session_key: sessionAccount.address,
             allowances: [{ asset: 'ytest.usd', amount: '1000000000' }],
             expires_at: BigInt(Math.floor(Date.now() / 1000) + 3600),
-            scope: 'vaultos.trading',
+            scope: 'bettify.trading',
         };
 
         // Store auth params for signature verification in handleAuthChallenge
@@ -245,7 +249,7 @@ export class VaultOSYellowClient {
             session_key: sessionAccount.address,
             allowances: [{ asset: 'ytest.usd', amount: '1000000000' }],
             expires_at: this.authParams.expires_at,  // Reuse same expires_at
-            scope: 'vaultos.trading',
+            scope: 'bettify.trading',
         };
         
         const signer = createEIP712AuthMessageSigner(
@@ -578,9 +582,9 @@ export class VaultOSYellowClient {
 }
 
 /**
- * Create VaultOS Yellow client from environment
+ * Create Bettify Yellow client from environment
  */
-export function createVaultOSYellowClient(): VaultOSYellowClient {
+export function createBettifyYellowClient(): BettifyYellowClient {
     const privateKey = process.env.PRIVATE_KEY as `0x${string}`;
     const rpcUrl = process.env.SEPOLIA_RPC_URL;
 
@@ -588,5 +592,5 @@ export function createVaultOSYellowClient(): VaultOSYellowClient {
         throw new Error('PRIVATE_KEY not found in environment');
     }
 
-    return new VaultOSYellowClient(privateKey, rpcUrl);
+    return new BettifyYellowClient(privateKey, rpcUrl);
 }

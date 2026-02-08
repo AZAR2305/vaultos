@@ -175,7 +175,7 @@ export class EnhancedYellowClient {
                 amount: sessionConfig?.allowanceAmount || '1000000000' 
             }],
             expires_at: BigInt(Math.floor(Date.now() / 1000) + (sessionConfig?.expiresInSeconds || 3600)),
-            scope: sessionConfig?.scope || 'vaultos.trading',
+            scope: sessionConfig?.scope || 'bettify.trading',
         };
 
         this.authParams = authParams;

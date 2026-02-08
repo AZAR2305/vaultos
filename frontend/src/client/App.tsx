@@ -40,7 +40,7 @@ const App = () => {
           <div className="landing-hero">
             <div className="hero-glitch">
               <p className="hero-subtitle">{'[ INITIALIZING PROTOCOL... ]'}</p>
-              <h1 className="app-title">VAULTOS</h1>
+              <h1 className="app-title">BETTIFY</h1>
               <p className="hero-tagline">NEXT-GEN PREDICTION MARKETS</p>
               <div className="hero-specs">
                 <span>YELLOW NETWORK</span>

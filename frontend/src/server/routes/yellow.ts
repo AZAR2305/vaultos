@@ -246,7 +246,7 @@ router.get('/balance/:address', async (req, res) => {
                 
                 const authParams = {
                     address: adminAccount.address,
-                    application: 'VaultOS',
+                    application: 'Bettify',
                     session_key: sessionAccount.address,
                     allowances: [{ asset: 'ytest.usd', amount: '1000000000' }],
                     expires_at: BigInt(Math.floor(Date.now() / 1000) + 3600),
@@ -279,7 +279,7 @@ router.get('/balance/:address', async (req, res) => {
                     const signer = createEIP712AuthMessageSigner(
                         walletClient,
                         authParamsForSigning,
-                        { name: 'VaultOS' }
+                        { name: 'Bettify' }
                     );
                     
                     const verifyMsg = await createAuthVerifyMessageFromChallenge(signer, challenge);

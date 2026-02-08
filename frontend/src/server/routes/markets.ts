@@ -128,7 +128,7 @@ router.post('/create', async (req, res) => {
                         const signer = createEIP712AuthMessageSigner(
                             walletClient,
                             authParamsForSigning,
-                            { name: 'VaultOS' }
+                            { name: 'Bettify' }
                         );
                         
                         const verifyMsg = await createAuthVerifyMessageFromChallenge(signer, challenge);

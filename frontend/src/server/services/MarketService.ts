@@ -13,7 +13,7 @@
 import { WebSocket, WebSocketServer } from 'ws';
 import { LmsrAmm, AmmState, AmmResult, toAmmAmount, fromAmmAmount } from './AmmMath.js';
 import { SettlementMath } from './SettlementMath.js';
-import { VaultOSYellowClient } from '../yellow/vaultos-yellow.js';
+import { BettifyYellowClient } from '../yellow/bettify-yellow.js';
 
 // Position for Market (uses BigInt for precision)
 export interface Position {
@@ -93,14 +93,14 @@ export class MarketService {
     private markets: Map<string, Market> = new Map();
     private tradeNonce: number = 0;
     private wss: WebSocketServer | null = null;
-    private yellowClient: VaultOSYellowClient | null = null;
+    private yellowClient: BettifyYellowClient | null = null;
     // Track liquidity locked in markets per user (address -> amount in USDC)
     private lockedLiquidity: Map<string, number> = new Map();
     private persistenceFile = './markets-data.json';
 
     constructor(privateKey?: `0x${string}`) {
         if (privateKey) {
-            this.yellowClient = new VaultOSYellowClient(privateKey);
+            this.yellowClient = new BettifyYellowClient(privateKey);
             this.initializeYellowClient();
         }
         // Load persisted markets on startup

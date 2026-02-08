@@ -1,7 +1,7 @@
 /**
  * Session Service - Yellow Network Integration
  * 
- * Manages Yellow Network state channels for VaultOS prediction markets
+ * Manages Yellow Network state channels for Bettify prediction markets
  * Uses real Nitrolite SDK for off-chain trading
  * 
  * Features:
@@ -10,7 +10,7 @@
  * - Off-chain balance tracking
  * - Cooperative channel closure
  */
-import { VaultOSYellowClient } from '../yellow/vaultos-yellow.js';
+import { BettifyYellowClient } from '../yellow/bettify-yellow.js';
 
 interface SessionData {
   sessionId: string;
@@ -21,7 +21,7 @@ interface SessionData {
   spentAmount: string;
   createdAt: number;
   expiresAt: number;
-  yellowClient: VaultOSYellowClient;
+  yellowClient: BettifyYellowClient;
 }
 
 export class SessionService {
@@ -39,7 +39,7 @@ export class SessionService {
    * - CHANNEL: Persistent, on-chain + off-chain state
    * 
    * Steps:
-   * 1. Create VaultOSYellowClient instance
+   * 1. Create BettifyYellowClient instance
    * 2. Connect and authenticate (generates NEW session key)
    * 3. Query for existing channels (resume if found)
    * 4. Create new channel only if none exists

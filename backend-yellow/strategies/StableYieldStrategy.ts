@@ -16,7 +16,7 @@
  * - All trades settle in ytest.USD (Base Sepolia testnet)
  */
 
-import { VaultOSYellowClient } from '../yellow/vaultos-yellow';
+import { BettifyYellowClient } from '../yellow/bettify-yellow';
 import { createPublicClient, http, formatUnits, parseUnits } from 'viem';
 import { baseSepolia } from 'viem/chains';
 
@@ -76,7 +76,7 @@ export interface HarvestResult {
 // ============================================================================
 
 export class StableYieldStrategy {
-    private yellowClient: VaultOSYellowClient;
+    private yellowClient: BettifyYellowClient;
     private publicClient: any;
     private vaultAddress: string;
     
@@ -93,7 +93,7 @@ export class StableYieldStrategy {
         
         // Initialize Yellow Network client
         // This handles ledger + state channel abstraction
-        this.yellowClient = new VaultOSYellowClient(privateKey);
+        this.yellowClient = new BettifyYellowClient(privateKey);
         
         // Public client for read-only operations (price feeds, etc)
         this.publicClient = createPublicClient({

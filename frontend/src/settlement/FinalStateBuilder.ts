@@ -135,7 +135,7 @@ export class FinalStateBuilder {
                 ],
             },
             domain: {
-                name: 'VaultOS Prediction Market',
+                name: 'Bettify Prediction Market',
                 version: '1',
                 chainId,
             },

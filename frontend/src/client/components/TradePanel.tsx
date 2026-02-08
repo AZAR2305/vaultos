@@ -125,7 +125,7 @@ const TradePanel: React.FC = () => {
       {/* Terminal-style selection */}
       <div className="terminal-section" style={{ marginBottom: '20px' }}>
         <div className="terminal-row">
-          <span className="prompt">{'trader@vaultos:~$'}</span>
+          <span className="prompt">{'trader@bettify:~$'}</span>
           <span className="command">select market</span>
         </div>
         <div className="terminal-row">
@@ -240,7 +240,7 @@ const TradePanel: React.FC = () => {
       {/* Terminal output */}
       <div className="terminal-section" style={{ marginTop: '30px' }}>
         <div className="terminal-row">
-          <span className="prompt">{'trader@vaultos:~$'}</span>
+          <span className="prompt">{'trader@bettify:~$'}</span>
           <span className="command">status</span>
         </div>
         <div className="terminal-row">

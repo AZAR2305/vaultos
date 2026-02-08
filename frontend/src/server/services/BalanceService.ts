@@ -60,7 +60,7 @@ export class BalanceService {
             }
 
             // Query balance from Yellow Network via queryBalance method
-            // Note: VaultOSYellowClient might not have queryBalance, use fallback
+            // Note: BettifyYellowClient might not have queryBalance, use fallback
             let balanceInMicro = 0;
             
             try {

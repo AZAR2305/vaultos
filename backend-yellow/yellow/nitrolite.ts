@@ -131,11 +131,11 @@ export class YellowNetworkClient {
     // Send auth request
     const authParams = {
       address: this.account.address,
-      application: 'VaultOS Prediction Market',
+      application: 'Bettify Prediction Market',
       session_key: sessionAccount.address,
       allowances: [{ asset: 'ytest.usd', amount: allowanceAmount }],
       expires_at: expiresAt,
-      scope: 'vaultos.trading',
+      scope: 'bettify.trading',
     };
 
     const authRequestMsg = await createAuthRequestMessage(authParams);
@@ -147,7 +147,7 @@ export class YellowNetworkClient {
     const signer = createEIP712AuthMessageSigner(
       this.walletClient, 
       authParams, 
-      { name: 'VaultOS Prediction Market' }
+      { name: 'Bettify Prediction Market' }
     );
     
     const verifyMsg = await createAuthVerifyMessageFromChallenge(signer, challenge.res[2].challenge_message);
