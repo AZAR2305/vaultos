@@ -16,11 +16,17 @@ interface Position {
   marketStatus: string;
 }
 
-const PositionsView: React.FC = () => {
+interface PositionsViewProps {
+  session?: any; // Session object with sessionId
+}
+
+const PositionsView: React.FC<PositionsViewProps> = ({ session }) => {
   const { address } = useAccount();
   const [positions, setPositions] = useState<Position[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [refundSuccess, setRefundSuccess] = useState('');
+  const [refundError, setRefundError] = useState('');
 
   useEffect(() => {
     if (address) {
@@ -60,36 +66,48 @@ const PositionsView: React.FC = () => {
   };
 
   const handleRefund = async (position: Position) => {
-    if (!address) return;
+    setRefundError('');
+    setRefundSuccess('');
+    
+    if (!address || !session || !session.sessionId) {
+      setRefundError('Please connect your wallet and create a session first');
+      return;
+    }
+
+    const refundAmount = position.totalCost * 0.25; // 25% of original cost
+    const penalty = position.totalCost * 0.75; // 75% penalty
 
     const confirmed = window.confirm(
-      `Request 25% refund for ${position.shares.toFixed(0)} ${position.outcome} shares?\n\nYou will receive: $${(position.currentValue * 0.25).toFixed(2)} USDC`
+      `Request 25% refund for ${position.shares.toFixed(0)} ${position.outcome} shares?\n\nOriginal cost: $${position.totalCost.toFixed(2)} ytest.USD\nYou will receive: $${refundAmount.toFixed(2)} ytest.USD (25%)\nPenalty: $${penalty.toFixed(2)} ytest.USD (75% stays in pool)\n\nThis action cannot be undone.`
     );
 
     if (!confirmed) return;
 
     try {
-      const response = await fetch('http://localhost:3000/api/positions/refund', {
+      const response = await fetch('http://localhost:3000/api/trade/refund', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          sessionId: session.sessionId,
           marketId: position.marketId,
-          userAddress: address,
           outcome: position.outcome
         })
       });
 
       if (response.ok) {
         const data = await response.json();
-        alert(`✅ Refund successful!\n\nReceived: $${data.refund.refundAmount.toFixed(2)} USDC (25%)`);
+        setRefundSuccess(`Refund successful! Received: $${data.refund.refundAmount.toFixed(2)} ytest.USD (25%). Penalty: $${data.refund.penalty.toFixed(2)} ytest.USD (75%). ${data.message}`);
         fetchPositions(); // Refresh positions
+        
+        // Clear success message after 5 seconds
+        setTimeout(() => setRefundSuccess(''), 5000);
       } else {
         const errorData = await response.json();
-        alert('❌ Refund failed: ' + errorData.error);
+        setRefundError('Refund failed: ' + errorData.error);
       }
     } catch (err) {
       console.error('Refund error:', err);
-      alert('❌ Network error processing refund');
+      setRefundError('Network error processing refund');
     }
   };
 
@@ -138,6 +156,34 @@ const PositionsView: React.FC = () => {
         </button>
       </div>
 
+      {refundSuccess && (
+        <div style={{
+          background: 'rgba(34, 197, 94, 0.1)',
+          border: '1px solid #22c55e',
+          borderRadius: '8px',
+          padding: '12px',
+          marginBottom: '20px',
+          color: '#22c55e',
+          fontSize: '0.9rem'
+        }}>
+          ✅ {refundSuccess}
+        </div>
+      )}
+
+      {refundError && (
+        <div style={{
+          background: 'rgba(239, 68, 68, 0.1)',
+          border: '1px solid #ef4444',
+          borderRadius: '8px',
+          padding: '12px',
+          marginBottom: '20px',
+          color: '#ef4444',
+          fontSize: '0.9rem'
+        }}>
+          ❌ {refundError}
+        </div>
+      )}
+
       {error && (
         <div className="error-message">
           ❌ {error}
@@ -159,16 +205,16 @@ const PositionsView: React.FC = () => {
             </div>
             <div className="summary-item">
               <span className="label">Total Invested:</span>
-              <span className="value">${formatUSDC(totalCost)} USDC</span>
+              <span className="value">${formatUSDC(totalCost)} ytest.USD</span>
             </div>
             <div className="summary-item">
               <span className="label">Current Value:</span>
-              <span className="value">${formatUSDC(totalPositionValue)} USDC</span>
+              <span className="value">${formatUSDC(totalPositionValue)} ytest.USD</span>
             </div>
             <div className="summary-item">
               <span className="label">Total P&L:</span>
               <span className={`value ${getPnLClass(totalPnL)}`}>
-                {totalPnL >= 0 ? '+' : ''}${formatUSDC(totalPnL)} USDC
+                {totalPnL >= 0 ? '+' : ''}${formatUSDC(totalPnL)} ytest.USD
               </span>
             </div>
           </div>
@@ -242,8 +288,8 @@ const PositionsView: React.FC = () => {
                         ✅ IF YOU WIN (Market resolves to {position.outcome}):
                       </div>
                       <div style={{ paddingLeft: '20px', color: 'var(--text-secondary)' }}>
-                        <div>• You get: ${position.shares.toFixed(2)} USDC (full payout)</div>
-                        <div>• Profit: <span style={{ color: '#4ade80', fontWeight: 'bold' }}>+${(position.shares - position.totalCost).toFixed(2)} USDC</span></div>
+                        <div>• You get: ${position.shares.toFixed(2)} ytest.USD (full payout)</div>
+                        <div>• Profit: <span style={{ color: '#4ade80', fontWeight: 'bold' }}>+${(position.shares - position.totalCost).toFixed(2)} ytest.USD</span></div>
                         <div>• Return: <span style={{ color: '#4ade80' }}>+{(((position.shares - position.totalCost) / position.totalCost) * 100).toFixed(1)}%</span></div>
                       </div>
                     </div>
@@ -254,24 +300,25 @@ const PositionsView: React.FC = () => {
                         ❌ IF YOU LOSE (Market resolves to {position.outcome === 'YES' ? 'NO' : 'YES'}):
                       </div>
                       <div style={{ paddingLeft: '20px', color: 'var(--text-secondary)' }}>
-                        <div>• You get: $0.00 USDC</div>
-                        <div>• Loss: <span style={{ color: '#ef4444', fontWeight: 'bold' }}>-${position.totalCost.toFixed(2)} USDC</span></div>
+                        <div>• You get: $0.00 ytest.USD</div>
+                        <div>• Loss: <span style={{ color: '#ef4444', fontWeight: 'bold' }}>-${position.totalCost.toFixed(2)} ytest.USD</span></div>
                         <div>• Return: <span style={{ color: '#ef4444' }}>-100%</span></div>
                       </div>
                     </div>
 
                     {/* REFUND SCENARIO */}
-                    {position.marketStatus === 'OPEN' && (
+                    {position.marketStatus === 'active' && (
                       <div>
                         <div style={{ color: 'var(--accent-retro)', fontWeight: 'bold', marginBottom: '4px' }}>
                           💰 IF YOU REFUND NOW (25% early exit):
                         </div>
                         <div style={{ paddingLeft: '20px', color: 'var(--text-secondary)' }}>
-                          <div>• Current value: ${position.currentValue.toFixed(2)} USDC</div>
-                          <div>• Refund (25%): <span style={{ color: 'var(--accent-retro)', fontWeight: 'bold' }}>${(position.currentValue * 0.25).toFixed(2)} USDC</span></div>
-                          <div>• Net loss: <span style={{ color: '#ef4444' }}>-${(position.totalCost - (position.currentValue * 0.25)).toFixed(2)} USDC</span></div>
+                          <div>• Original cost: ${position.totalCost.toFixed(2)} ytest.USD</div>
+                          <div>• Refund (25%): <span style={{ color: 'var(--accent-retro)', fontWeight: 'bold' }}>${(position.totalCost * 0.25).toFixed(2)} ytest.USD</span></div>
+                          <div>• Penalty (75%): <span style={{ color: '#ef4444' }}>-${(position.totalCost * 0.75).toFixed(2)} ytest.USD stays in pool</span></div>
+                          <div>• Net loss: <span style={{ color: '#ef4444' }}>-${(position.totalCost * 0.75).toFixed(2)} ytest.USD</span></div>
                           <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px', fontStyle: 'italic' }}>
-                            ℹ️ Refund available only while market is OPEN
+                            ℹ️ Refund available only while market is ACTIVE
                           </div>
                         </div>
                       </div>
@@ -279,24 +326,26 @@ const PositionsView: React.FC = () => {
                   </div>
                 </div>
 
-                {position.marketStatus === 'OPEN' && (
+                {position.marketStatus === 'active' && (
                   <div className="position-actions" style={{ marginTop: '15px', textAlign: 'right' }}>
                     <button 
                       onClick={() => handleRefund(position)}
                       className="btn-refund"
                       style={{
                         padding: '8px 16px',
-                        background: '#FFD700',
+                        background: session && session.sessionId ? '#FFD700' : '#666',
                         color: '#000',
-                        border: '2px solid #FFD700',
+                        border: session && session.sessionId ? '2px solid #FFD700' : '2px solid #666',
                         borderRadius: '4px',
-                        cursor: 'pointer',
+                        cursor: session && session.sessionId ? 'pointer' : 'not-allowed',
                         fontWeight: 'bold',
                         fontFamily: 'Space Mono, monospace',
                         textTransform: 'uppercase',
-                        fontSize: '0.85rem'
+                        fontSize: '0.85rem',
+                        opacity: session && session.sessionId ? 1 : 0.5
                       }}
-                      title="Get 25% of your position value back"
+                      title={session && session.sessionId ? "Get 25% of your original cost back" : "Connect wallet and create session first"}
+                      disabled={!session || !session.sessionId}
                     >
                       [ REQUEST 25% REFUND ]
                     </button>

@@ -205,9 +205,12 @@ const MarketDashboard: React.FC = () => {
   };
 
   const calculateOdds = (market: Market) => {
-    // Backend sends authoritative prices (0-1 range)
-    const yesPrice = market.yesPrice || 0.5;
-    const noPrice = market.noPrice || 0.5;
+    if (!market || market.totalPool === 0) {
+      return { yes: 50, no: 50 };
+    }
+    // Calculate price from pool ratio
+    const yesPrice = market.yesPool / market.totalPool;
+    const noPrice = market.noPool / market.totalPool;
     
     // Convert to percentages
     return {

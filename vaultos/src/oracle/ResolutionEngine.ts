@@ -148,10 +148,13 @@ export class ResolutionEngine {
                 return;
             }
 
+            // Convert outcome number to YES/NO string
+            const outcomeString = proof.outcome === 1 ? 'YES' : 'NO';
+            
             // Resolve market via MarketService
-            await MarketService.resolveMarket(marketId, proof.outcome, proof.signature);
+            await MarketService.resolveMarket(marketId, outcomeString, proof.signature);
 
-            console.log(`✅ Market ${marketId} resolved: Outcome = ${proof.outcome}`);
+            console.log(`✅ Market ${marketId} resolved: Outcome = ${outcomeString}`);
 
             // Optionally trigger settlement
             // await MarketService.settleMarket(marketId); // Phase 4
@@ -172,7 +175,8 @@ export class ResolutionEngine {
 
         // TODO: Verify admin signature/authority
 
-        await MarketService.resolveMarket(marketId, pending.proof.outcome, pending.proof.signature);
+        const outcomeString = pending.proof.outcome === 1 ? 'YES' : 'NO';
+        await MarketService.resolveMarket(marketId, outcomeString, pending.proof.signature);
 
         this.pendingResolutions.delete(marketId);
         console.log(`✅ Pending resolution approved by admin: ${marketId} | Outcome: ${pending.proof.outcome}`);
@@ -206,7 +210,7 @@ export class ResolutionEngine {
     /**
      * Force resolve a market (emergency admin action)
      */
-    async forceResolve(marketId: string, outcome: number, adminAddress: string, reason: string): Promise<void> {
+    async forceResolve(marketId: string, outcome: 'YES' | 'NO', adminAddress: string, reason: string): Promise<void> {
         // TODO: Verify admin signature/authority
         console.warn(`⚠️ FORCE RESOLVE: Market ${marketId} | Outcome: ${outcome} | Reason: ${reason} | Admin: ${adminAddress}`);
 
@@ -214,7 +218,7 @@ export class ResolutionEngine {
         const manualProof: OracleProof = {
             oracleType: 'manual' as any,
             timestamp: Date.now(),
-            outcome,
+            outcome: outcome === 'YES' ? 1 : 0,
             signature: `manual_${adminAddress}_${Date.now()}`,
             metadata: {
                 reason,

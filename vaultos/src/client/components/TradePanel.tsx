@@ -42,37 +42,16 @@ const TradePanel: React.FC = () => {
           setSelectedMarket(formattedMarkets[0].id);
         }
       } else {
-        // Fallback to mock data
-        const mock = getMockMarkets();
-        setMarkets(mock);
-        setSelectedMarket(mock[0].id);
+        console.error('Failed to fetch markets:', response.status);
+        setMarkets([]);
       }
     } catch (err) {
       console.error('Error fetching markets:', err);
-      const mock = getMockMarkets();
-      setMarkets(mock);
-      setSelectedMarket(mock[0].id);
+      setMarkets([]);
     } finally {
       setLoading(false);
     }
   };
-
-  const getMockMarkets = (): Market[] => [
-    {
-      id: 'market_1',
-      question: 'Will BTC reach $150k by end of 2026?',
-      yesPrice: 0.62,
-      noPrice: 0.38,
-      category: 'CRYPTO'
-    },
-    {
-      id: 'market_2',
-      question: 'Will Ethereum complete Dencun upgrade by Q2 2026?',
-      yesPrice: 0.78,
-      noPrice: 0.22,
-      category: 'CRYPTO'
-    }
-  ];
 
   const executeTrade = async () => {
     if (!isConnected) {

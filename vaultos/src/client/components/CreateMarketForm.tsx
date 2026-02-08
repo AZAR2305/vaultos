@@ -2,7 +2,7 @@
  * Create Market Form
  * Allows admins to create new prediction markets
  */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAccount } from 'wagmi';
 
 interface CreateMarketFormProps {
@@ -18,9 +18,51 @@ const CreateMarketForm: React.FC<CreateMarketFormProps> = ({ onMarketCreated, on
   const [liquidity, setLiquidity] = useState('10');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [userBalance, setUserBalance] = useState<number | null>(null);
+  const [checkingBalance, setCheckingBalance] = useState(false);
+
+  // Check balance when component mounts
+  useEffect(() => {
+    if (address) {
+      checkBalance();
+    }
+  }, [address]);
+
+  const checkBalance = async () => {
+    if (!address) return;
+    
+    try {
+      setCheckingBalance(true);
+      const sessionKey = `session_${address}`;
+      const savedSession = localStorage.getItem(sessionKey);
+      
+      if (!savedSession) {
+        setUserBalance(null);
+        return;
+      }
+      
+      const session = JSON.parse(savedSession);
+      
+      // Query balance from backend
+      const response = await fetch(`http://localhost:3000/api/balance/${session.sessionId}`);
+      if (response.ok) {
+        const data = await response.json();
+        // Balance is in 6 decimals, convert to regular number
+        const balance = data.balance / 1_000_000;
+        setUserBalance(balance);
+      }
+    } catch (err) {
+      console.error('Error checking balance:', err);
+    } finally {
+      setCheckingBalance(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
+    setSuccess('');
     
     if (!address) {
       setError('Please connect your wallet');
@@ -29,6 +71,12 @@ const CreateMarketForm: React.FC<CreateMarketFormProps> = ({ onMarketCreated, on
 
     if (!question || !endDate) {
       setError('Question and end date are required');
+      return;
+    }
+
+    const liquidityAmount = parseFloat(liquidity);
+    if (userBalance !== null && liquidityAmount > userBalance) {
+      setError(`Insufficient balance! You have ${userBalance.toFixed(2)} ytest.USD but need ${liquidityAmount.toFixed(2)} ytest.USD to create this market.`);
       return;
     }
 
@@ -74,7 +122,7 @@ const CreateMarketForm: React.FC<CreateMarketFormProps> = ({ onMarketCreated, on
       const data = await response.json();
 
       if (response.ok && data.success) {
-        alert(`✅ Market created successfully!\n\nMarket ID: ${data.marketId}\nQuestion: ${question}`);
+        setSuccess(`✅ Market created successfully!\n\nMarket ID: ${data.marketId}\nQuestion: ${question}\nLiquidity: ${liquidity} ytest.USD transferred to clearnode`);
         
         // Reset form
         setQuestion('');
@@ -82,8 +130,11 @@ const CreateMarketForm: React.FC<CreateMarketFormProps> = ({ onMarketCreated, on
         setEndDate('');
         setLiquidity('10');
         
+        // Refresh balance
+        checkBalance();
+        
         if (onMarketCreated) {
-          onMarketCreated();
+          setTimeout(() => onMarketCreated(), 2000);
         }
       } else {
         setError(data.error || 'Failed to create market');
@@ -115,6 +166,52 @@ const CreateMarketForm: React.FC<CreateMarketFormProps> = ({ onMarketCreated, on
         [ CREATE NEW MARKET ]
       </h2>
 
+      {checkingBalance && (
+        <div style={{
+          background: 'rgba(59, 130, 246, 0.1)',
+          border: '1px solid #3b82f6',
+          borderRadius: '4px',
+          padding: '10px',
+          marginBottom: '20px',
+          color: '#3b82f6',
+          fontSize: '0.9rem'
+        }}>
+          🔄 Checking your balance...
+        </div>
+      )}
+
+      {userBalance !== null && (
+        <div style={{
+          background: 'rgba(34, 197, 94, 0.1)',
+          border: '1px solid #22c55e',
+          borderRadius: '4px',
+          padding: '10px',
+          marginBottom: '20px',
+          color: '#22c55e',
+          fontSize: '0.9rem',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <span>💰 Your Balance: <strong>{userBalance.toFixed(2)} ytest.USD</strong></span>
+          <button
+            type="button"
+            onClick={checkBalance}
+            style={{
+              background: 'transparent',
+              border: '1px solid #22c55e',
+              color: '#22c55e',
+              padding: '5px 10px',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '0.8rem'
+            }}
+          >
+            🔄 Refresh
+          </button>
+        </div>
+      )}
+
       {error && (
         <div style={{
           background: 'rgba(239, 68, 68, 0.1)',
@@ -123,9 +220,25 @@ const CreateMarketForm: React.FC<CreateMarketFormProps> = ({ onMarketCreated, on
           padding: '10px',
           marginBottom: '20px',
           color: '#ef4444',
-          fontSize: '0.9rem'
+          fontSize: '0.9rem',
+          whiteSpace: 'pre-line'
         }}>
           ❌ {error}
+        </div>
+      )}
+
+      {success && (
+        <div style={{
+          background: 'rgba(34, 197, 94, 0.1)',
+          border: '1px solid #22c55e',
+          borderRadius: '4px',
+          padding: '10px',
+          marginBottom: '20px',
+          color: '#22c55e',
+          fontSize: '0.9rem',
+          whiteSpace: 'pre-line'
+        }}>
+          {success}
         </div>
       )}
 
@@ -233,7 +346,7 @@ const CreateMarketForm: React.FC<CreateMarketFormProps> = ({ onMarketCreated, on
             fontFamily: 'Space Mono, monospace',
             textTransform: 'uppercase'
           }}>
-            Initial Liquidity (USDC)
+            Initial Liquidity (ytest.USD)
           </label>
           <input
             type="number"
@@ -242,11 +355,12 @@ const CreateMarketForm: React.FC<CreateMarketFormProps> = ({ onMarketCreated, on
             min="10"
             step="10"
             required
+            max={userBalance || undefined}
             style={{
               width: '100%',
               padding: '12px',
               background: 'rgba(0, 0, 0, 0.3)',
-              border: '1px solid var(--card-border)',
+              border: parseFloat(liquidity) > (userBalance || Infinity) ? '2px solid #ef4444' : '1px solid var(--card-border)',
               borderRadius: '4px',
               color: 'var(--text-primary)',
               fontSize: '0.9rem',
@@ -254,12 +368,14 @@ const CreateMarketForm: React.FC<CreateMarketFormProps> = ({ onMarketCreated, on
             }}
           />
           <p style={{
-            color: 'var(--text-secondary)',
+            color: parseFloat(liquidity) > (userBalance || Infinity) ? '#ef4444' : 'var(--text-secondary)',
             fontSize: '0.75rem',
             marginTop: '5px',
             fontStyle: 'italic'
           }}>
-            Minimum 10 ytest.USD. Higher liquidity = better pricing.
+            {parseFloat(liquidity) > (userBalance || Infinity) 
+              ? `⚠️ Exceeds your balance of ${userBalance?.toFixed(2)} ytest.USD!`
+              : 'Minimum 10 ytest.USD. Higher liquidity = better pricing.'}
           </p>
         </div>
 

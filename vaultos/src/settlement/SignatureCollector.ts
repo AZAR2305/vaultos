@@ -17,8 +17,10 @@
  */
 
 import { ethers } from 'ethers';
-import WebSocket from 'ws';
+import * as WebSocket from 'ws';
 import { FinalStateHash } from './FinalStateBuilder';
+
+type WebSocketServer = WebSocket.Server;
 
 export interface SignatureRequest {
     marketId: string;
@@ -46,9 +48,9 @@ export interface CollectionStatus {
 export class SignatureCollector {
     private pendingRequests: Map<string, SignatureRequest> = new Map(); // marketId -> request
     private collectedSignatures: Map<string, SignatureResponse[]> = new Map(); // marketId -> signatures
-    private wss?: WebSocket.Server;
+    private wss?: WebSocketServer;
 
-    constructor(wss?: WebSocket.Server) {
+    constructor(wss?: WebSocketServer) {
         this.wss = wss;
     }
 
@@ -83,8 +85,8 @@ export class SignatureCollector {
                 },
             });
 
-            this.wss.clients.forEach((client) => {
-                if (client.readyState === WebSocket.OPEN) {
+            this.wss.clients.forEach((client: WebSocket.WebSocket) => {
+                if (client.readyState === 1) { // WebSocket.OPEN
                     client.send(message);
                 }
             });
@@ -167,8 +169,8 @@ export class SignatureCollector {
                 data: status,
             });
 
-            this.wss.clients.forEach((client) => {
-                if (client.readyState === WebSocket.OPEN) {
+            this.wss.clients.forEach((client: WebSocket.WebSocket) => {
+                if (client.readyState === 1) { // WebSocket.OPEN
                     client.send(message);
                 }
             });
@@ -267,8 +269,8 @@ export class SignatureCollector {
                 data: { marketId, reason },
             });
 
-            this.wss.clients.forEach((client) => {
-                if (client.readyState === WebSocket.OPEN) {
+            this.wss.clients.forEach((client: WebSocket.WebSocket) => {
+                if (client.readyState === 1) { // WebSocket.OPEN
                     client.send(message);
                 }
             });

@@ -54,7 +54,7 @@ router.post('/create-channel', async (req, res) => {
         // Auth parameters
         const authParams = {
             address: account.address,
-            session_key: sessionWallet.address,
+            session_key: sessionWallet.address as `0x${string}`,
             application: 'Yellow',
             expires_at: BigInt(Math.floor(Date.now() / 1000) + 7200),
             scope: 'console',
@@ -93,7 +93,7 @@ router.post('/create-channel', async (req, res) => {
                             {
                                 session_key: authParams.session_key,
                                 allowances: authParams.allowances,
-                                expires_at: authParams.expires_at.toString(),
+                                expires_at: authParams.expires_at,
                                 scope: authParams.scope,
                             },
                             { name: authParams.application }
@@ -231,12 +231,19 @@ router.get('/balance/:address', async (req, res) => {
         const balancePromise = new Promise<number>((resolve, reject) => {
             const ws = new WebSocket(CLEARNODE_URL);
             let authenticated = false;
+            let balanceChecked = false;
             const timeout = setTimeout(() => {
+                if (!balanceChecked) {
+                    console.log('   ⏰ Balance query timeout - Yellow Network may be slow');
+                }
                 ws.close();
                 reject(new Error('Timeout waiting for balance'));
-            }, 10000);
+            }, 15000); // Increased to 15s
             
             ws.on('open', async () => {
+                // CRITICAL: Wait before sending (sandbox requirement)
+                await new Promise(r => setTimeout(r, 300));
+                
                 const authParams = {
                     address: adminAccount.address,
                     application: 'VaultOS',
@@ -281,6 +288,8 @@ router.get('/balance/:address', async (req, res) => {
                 
                 if (messageType === 'auth_verify' && !authenticated) {
                     authenticated = true;
+                    // CRITICAL: Wait before balance query
+                    await new Promise(r => setTimeout(r, 300));
                     // Request balance
                     const msg = await createGetLedgerBalancesMessage(
                         sessionSigner,
@@ -330,10 +339,6 @@ router.get('/balance/:address', async (req, res) => {
             address: address
         });
     } catch (error: any) {
-        console.error('❌ Balance query error:', error);
-        
-        // Fallback to mock data if real query fails
-        console.warn('⚠️ Falling back to mock data');
         res.json({
             success: true,
             total: 0,

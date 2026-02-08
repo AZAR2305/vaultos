@@ -22,56 +22,41 @@ router.get('/:address', async (req: Request, res: Response) => {
     }
 
     try {
-        // Get all active markets
-        const markets = marketService.getActiveMarkets();
+        // Get all active markets with full Market objects (including positions Map)
+        const markets = marketService.getAllMarkets();
         
         // Collect all trades from all markets for this user
         const allTrades: any[] = [];
         
         markets.forEach((market: any) => {
-            // Defensive check: ensure positions Map exists
-            if (!market.positions || !(market.positions instanceof Map)) {
-                console.warn(`⚠️ Market ${market.id} has no positions Map`);
+            // Skip if no trades in this market
+            if (!market.trades || market.trades.length === 0) {
                 return;
             }
 
-            const positions = market.positions.get(address);
-            if (positions) {
-                // For each position, add trade records
-                if (positions.YES && positions.YES.shares > 0) {
-                    allTrades.push({
-                        id: `${market.id}_YES_${Date.now()}`,
-                        marketId: market.id,
-                        marketQuestion: market.question,
-                        userAddress: address,
-                        outcome: 'YES',
-                        shares: positions.YES.shares,
-                        price: positions.YES.averagePrice,
-                        totalCost: positions.YES.totalCost,
-                        timestamp: positions.YES.timestamp || Date.now() - 3600000, // Mock: 1 hour ago
-                        type: 'BUY'
-                    });
-                }
-                
-                if (positions.NO && positions.NO.shares > 0) {
-                    allTrades.push({
-                        id: `${market.id}_NO_${Date.now()}`,
-                        marketId: market.id,
-                        marketQuestion: market.question,
-                        userAddress: address,
-                        outcome: 'NO',
-                        shares: positions.NO.shares,
-                        price: positions.NO.averagePrice,
-                        totalCost: positions.NO.totalCost,
-                        timestamp: positions.NO.timestamp || Date.now() - 7200000, // Mock: 2 hours ago
-                        type: 'BUY'
-                    });
-                }
-            }
+            // Get trades for this user from the trades array
+            const userTrades = market.trades.filter((trade: any) => 
+                trade.user && trade.user.toLowerCase() === address.toLowerCase()
+            );
+            
+            userTrades.forEach((trade: any) => {
+                allTrades.push({
+                    id: trade.id,
+                    marketId: market.id,
+                    marketQuestion: market.question,
+                    userAddress: trade.user,
+                    outcome: trade.outcome,
+                    shares: Number(trade.shares) / 1_000_000, // Convert bigint to decimal
+                    price: trade.price,
+                    totalCost: Number(trade.amount) / 1_000_000, // Convert bigint to decimal
+                    timestamp: trade.timestamp,
+                    txHash: trade.txHash
+                });
+            });
         });
 
         // Sort by timestamp (newest first)
-        allTrades.sort((a, b) => b.timestamp - a.timestamp);
+        allTrades.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
         res.json({
             success: true,

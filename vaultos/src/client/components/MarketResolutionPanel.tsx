@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface Market {
   id: string;
@@ -8,15 +8,35 @@ interface Market {
 }
 
 const MarketResolutionPanel: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false }) => {
-  // Mock markets data
-  const [markets, setMarkets] = useState<Market[]>([
-    { id: '1', title: 'BTC > $100k by EOY 2026?', status: 'OPEN' },
-    { id: '2', title: 'ETH reaches $8k in Q2 2026?', status: 'OPEN' },
-    { id: '3', title: 'US Inflation below 2% by Q3 2026?', status: 'FROZEN' },
-    { id: '4', title: 'AGI achieved by Dec 2026?', status: 'OPEN' },
-    { id: '5', title: 'Tesla stock > $500 by June 2026?', status: 'RESOLVED', resolvedOutcome: 'YES' },
-    { id: '6', title: 'SpaceX Mars landing in 2026?', status: 'OPEN' }
-  ]);
+  const [markets, setMarkets] = useState<Market[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch real markets from API
+  useEffect(() => {
+    fetchMarkets();
+    const interval = setInterval(fetchMarkets, 10000); // Refresh every 10s
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchMarkets = async () => {
+    try {
+      const response = await fetch('http://localhost:3000/api/markets');
+      if (response.ok) {
+        const data = await response.json();
+        const formattedMarkets = data.markets.map((m: any) => ({
+          id: m.id,
+          title: m.question,
+          status: m.status.toUpperCase() as 'OPEN' | 'FROZEN' | 'RESOLVED',
+          resolvedOutcome: m.winningOutcome || undefined
+        }));
+        setMarkets(formattedMarkets);
+      }
+    } catch (err) {
+      console.error('Error fetching markets:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const [selectedMarketId, setSelectedMarketId] = useState(markets[0].id);
   const [showResolution, setShowResolution] = useState(false);

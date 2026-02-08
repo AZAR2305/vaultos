@@ -222,19 +222,10 @@ const App: React.FC = () => {
             {/* Main Content */}
             <main className="main-content">
               {currentView === 'markets' && (
-                <MarketList
-                  userAddress={address!}
-                  channelId={channelId!}
-                  sessionId={sessionId!}
-                />
+                <MarketListNew />
               )}
               {currentView === 'trade' && (
-                <TradePanel
-                  userAddress={address!}
-                  channelId={channelId!}
-                  sessionId={sessionId!}
-                  balance={balance}
-                />
+                <TradePanelNew />
               )}
               {currentView === 'admin' && isAdmin && (
                 <AdminPanel

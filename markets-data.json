@@ -17,13 +17,47 @@
       "amm": {
         "liquidityParameter": "10000000",
         "shares": {
-          "YES": "0",
-          "NO": "0"
+          "YES": "487500",
+          "NO": "500000"
         }
       },
-      "totalVolume": "0",
-      "trades": [],
-      "positions": {}
+      "totalVolume": "493752",
+      "trades": [
+        {
+          "id": "trade_1770459774712_njpjkoxk1",
+          "marketId": "market_1770458496495_zi04g18q7",
+          "user": "0xFefa60F5aA4069F96b9Bf65c814DDb3A604974e1",
+          "outcome": "NO",
+          "amount": "253125",
+          "shares": "500000",
+          "price": 0.5124973964842103,
+          "timestamp": "2026-02-07T10:22:54.712Z"
+        },
+        {
+          "id": "trade_1770459836881_ssvicu6zk",
+          "marketId": "market_1770458496495_zi04g18q7",
+          "user": "0x8f287fC43c17A2c8bc1eA15e0d0a42cee5884Bb1",
+          "outcome": "YES",
+          "amount": "240627",
+          "shares": "487500",
+          "price": 0.4996875000406901,
+          "timestamp": "2026-02-07T10:23:56.881Z"
+        }
+      ],
+      "positions": {
+        "0xFefa60F5aA4069F96b9Bf65c814DDb3A604974e1_NO": {
+          "userAddress": "0xFefa60F5aA4069F96b9Bf65c814DDb3A604974e1",
+          "outcome": "NO",
+          "shares": "500000",
+          "totalCost": "253125"
+        },
+        "0x8f287fC43c17A2c8bc1eA15e0d0a42cee5884Bb1_YES": {
+          "userAddress": "0x8f287fC43c17A2c8bc1eA15e0d0a42cee5884Bb1",
+          "outcome": "YES",
+          "shares": "487500",
+          "totalCost": "240627"
+        }
+      }
     }
   ],
   "lockedLiquidity": {

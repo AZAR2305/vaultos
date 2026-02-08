@@ -22,7 +22,7 @@ router.get('/:address', async (req, res) => {
             });
         }
 
-        const markets = marketService.getActiveMarkets();
+        const markets = marketService.getAllMarkets();
         const allPositions: any[] = [];
 
         markets.forEach(market => {
@@ -32,43 +32,63 @@ router.get('/:address', async (req, res) => {
                 return;
             }
 
-            const userPosition = market.positions.get(address.toLowerCase());
+            // Get user's YES and NO positions (keys are "address_outcome")
+            const addressLower = address.toLowerCase();
+            const yesPosition = market.positions.get(`${addressLower}_YES`);
+            const noPosition = market.positions.get(`${addressLower}_NO`);
             
-            if (userPosition && (userPosition.yesShares > 0 || userPosition.noShares > 0)) {
-                // Calculate current values
-                const yesCost = userPosition.yesShares * market.amm.getPrice('YES');
-                const noCost = userPosition.noShares * market.amm.getPrice('NO');
-                const currentValue = yesCost + noCost;
-                const totalCost = userPosition.invested;
+            // Calculate current prices
+            const yesPrice = market.amm ? (market.amm.shares ? 
+                require('../services/AmmMath').LmsrAmm.getPrice(
+                    market.amm.liquidityParameter,
+                    market.amm.shares.YES,
+                    market.amm.shares.NO,
+                    'YES'
+                ) : 0.5) : 0.5;
+            const noPrice = market.amm ? (market.amm.shares ? 
+                require('../services/AmmMath').LmsrAmm.getPrice(
+                    market.amm.liquidityParameter,
+                    market.amm.shares.YES,
+                    market.amm.shares.NO,
+                    'NO'
+                ) : 0.5) : 0.5;
+
+            if (yesPosition && yesPosition.shares > 0n) {
+                const shares = Number(yesPosition.shares) / 1_000_000; // Convert to decimal
+                const totalCost = Number(yesPosition.totalCost) / 1_000_000;
+                const currentValue = shares * yesPrice;
                 const pnl = currentValue - totalCost;
 
-                if (userPosition.yesShares > 0) {
-                    allPositions.push({
-                        id: `${market.id}-YES`,
-                        marketId: market.id,
-                        marketQuestion: market.question,
-                        outcome: 'YES',
-                        shares: userPosition.yesShares,
-                        totalCost: yesCost,
-                        currentValue: yesCost,
-                        pnl: pnl * (yesCost / currentValue),
-                        marketStatus: market.status,
-                    });
-                }
+                allPositions.push({
+                    id: `${market.id}-YES`,
+                    marketId: market.id,
+                    marketQuestion: market.question,
+                    outcome: 'YES',
+                    shares: shares,
+                    totalCost: totalCost,
+                    currentValue: currentValue,
+                    pnl: pnl,
+                    marketStatus: market.status,
+                });
+            }
 
-                if (userPosition.noShares > 0) {
-                    allPositions.push({
-                        id: `${market.id}-NO`,
-                        marketId: market.id,
-                        marketQuestion: market.question,
-                        outcome: 'NO',
-                        shares: userPosition.noShares,
-                        totalCost: noCost,
-                        currentValue: noCost,
-                        pnl: pnl * (noCost / currentValue),
-                        marketStatus: market.status,
-                    });
-                }
+            if (noPosition && noPosition.shares > 0n) {
+                const shares = Number(noPosition.shares) / 1_000_000; // Convert to decimal
+                const totalCost = Number(noPosition.totalCost) / 1_000_000;
+                const currentValue = shares * noPrice;
+                const pnl = currentValue - totalCost;
+
+                allPositions.push({
+                    id: `${market.id}-NO`,
+                    marketId: market.id,
+                    marketQuestion: market.question,
+                    outcome: 'NO',
+                    shares: shares,
+                    totalCost: totalCost,
+                    currentValue: currentValue,
+                    pnl: pnl,
+                    marketStatus: market.status,
+                });
             }
         });
 
@@ -102,7 +122,7 @@ router.post('/refund', async (req, res) => {
             });
         }
 
-        const market = marketService.getMarket(marketId);
+        const market = marketService.getMarketById(marketId);
         if (!market) {
             return res.status(404).json({
                 success: false,

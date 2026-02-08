@@ -185,6 +185,35 @@ router.post('/:marketId/resolve', async (req, res) => {
     }
 });
 
+// Route to freeze market (stop trading before resolution)
+router.post('/:marketId/freeze', async (req, res) => {
+    try {
+        const { marketId } = req.params;
+        const { callerAddress } = req.body;
+
+        if (!callerAddress) {
+            return res.status(400).json({ error: 'Missing caller address' });
+        }
+
+        const market = await marketService.freezeMarket(marketId, callerAddress);
+        res.status(200).json({ success: true, market });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// Route to settle market (on-chain settlement after resolution)
+router.post('/:marketId/settle', async (req, res) => {
+    try {
+        const { marketId } = req.params;
+
+        const result = await marketService.settleMarket(marketId);
+        res.status(200).json({ success: true, ...result });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
 // Route to calculate user winnings
 router.get('/:marketId/winnings', async (req, res) => {
     try {

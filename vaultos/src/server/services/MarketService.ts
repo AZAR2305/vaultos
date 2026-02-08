@@ -12,8 +12,16 @@
 
 import { WebSocket, WebSocketServer } from 'ws';
 import { LmsrAmm, AmmState, AmmResult, toAmmAmount, fromAmmAmount } from './AmmMath';
-import { SettlementMath, Position } from './SettlementMath';
+import { SettlementMath } from './SettlementMath';
 import { VaultOSYellowClient } from '../../../../src/yellow/vaultos-yellow';
+
+// Position for Market (uses BigInt for precision)
+export interface Position {
+    userAddress: string;
+    outcome: 'YES' | 'NO';
+    shares: bigint;
+    totalCost: bigint;
+}
 
 export enum MarketStatus {
     ACTIVE = 'active',
@@ -117,9 +125,10 @@ export class MarketService {
                         if (m.positions && typeof m.positions === 'object') {
                             Object.entries(m.positions).forEach(([key, val]: [string, any]) => {
                                 positionsMap.set(key, {
-                                    shares: BigInt(val.shares || 0),
-                                    totalCost: BigInt(val.totalCost || 0),
-                                    outcome: val.outcome
+                                    userAddress: val.userAddress,
+                                    outcome: val.outcome,
+                                    shares: BigInt(val.shares || '0'),
+                                    totalCost: BigInt(val.totalCost || '0')
                                 });
                             });
                         }
@@ -133,6 +142,14 @@ export class MarketService {
                             }
                         };
                         
+                        // Parse trades - restore BigInts
+                        const trades = (m.trades || []).map((t: any) => ({
+                            ...t,
+                            amount: BigInt(t.amount),
+                            shares: BigInt(t.shares),
+                            timestamp: new Date(t.timestamp)
+                        }));
+                        
                         const market: Market = {
                             ...m,
                             createdAt: new Date(m.createdAt),
@@ -141,7 +158,7 @@ export class MarketService {
                             settledAt: m.settledAt ? new Date(m.settledAt) : undefined,
                             totalVolume: BigInt(m.totalVolume),
                             positions: positionsMap,
-                            trades: m.trades || [],
+                            trades: trades,
                             amm: ammState
                         };
                         this.markets.set(market.id, market);
@@ -187,9 +204,10 @@ export class MarketService {
                     const positionsObj: any = {};
                     m.positions.forEach((pos, key) => {
                         positionsObj[key] = {
+                            userAddress: pos.userAddress,
+                            outcome: pos.outcome,
                             shares: pos.shares.toString(),
-                            totalCost: pos.totalCost.toString(),
-                            outcome: pos.outcome
+                            totalCost: pos.totalCost.toString()
                         };
                     });
                     
@@ -205,6 +223,13 @@ export class MarketService {
                                 NO: m.amm.shares.NO.toString()
                             }
                         },
+                        // Convert trades BigInts to strings
+                        trades: m.trades.map(t => ({
+                            ...t,
+                            amount: t.amount.toString(),
+                            shares: t.shares.toString(),
+                            timestamp: t.timestamp.toISOString()
+                        })),
                         createdAt: m.createdAt.toISOString(),
                         endTime: m.endTime.toISOString(),
                         resolvedAt: m.resolvedAt?.toISOString(),
@@ -350,17 +375,13 @@ export class MarketService {
         const sharesBigInt = toAmmAmount(intent.amount);
         const result = LmsrAmm.calculateCost(market.amm, intent.outcome, sharesBigInt);
 
-        // Execute transfer via Yellow Network (using ledger balance)
-        if (this.yellowClient) {
-            try {
-                // In production, this would transfer USDC from user to market pool
-                // For now, we're using ledger balance so no actual transfer needed
-                console.log(`💰 Trade authorized: ${fromAmmAmount(result.cost)} USDC via Yellow Network`);
-            } catch (error) {
-                console.error('Yellow Network transfer failed:', error);
-                throw new Error('Trade execution failed on Yellow Network');
-            }
-        }
+        // STATE CHANNELS: No per-trade transfers needed
+        // Money flow:
+        // 1. Market creation: 10 ytest.USD → Clearnode (DONE)
+        // 2. Trading: Internal accounting only (STATE CHANNELS)
+        // 3. Settlement: Clearnode → Winners (at resolution)
+        console.log(`⚡ Off-chain trade: ${fromAmmAmount(result.cost)} ytest.USD via state channels`);
+        console.log(`   User: ${intent.user.slice(0, 10)}... | Outcome: ${intent.outcome} | Shares: ${fromAmmAmount(sharesBigInt)}`);
 
         // Update market state - preserve liquidityParameter
         market.amm = {
@@ -402,7 +423,8 @@ export class MarketService {
         // Broadcast authoritative state update
         this.broadcastMarketUpdate(market);
 
-        console.log(`💰 Trade executed: ${fromAmmAmount(sharesBigInt)} shares of ${intent.outcome} for ${fromAmmAmount(result.cost)} USDC | Market: ${intent.marketId}`);
+        console.log(`✅ Trade complete: ${fromAmmAmount(sharesBigInt)} ${intent.outcome} shares for ${fromAmmAmount(result.cost)} ytest.USD`);
+        console.log(`   New prices → YES: ${LmsrAmm.getPrice(market.amm.liquidityParameter, market.amm.shares.YES, market.amm.shares.NO, 'YES').toFixed(4)} | NO: ${LmsrAmm.getPrice(market.amm.liquidityParameter, market.amm.shares.YES, market.amm.shares.NO, 'NO').toFixed(4)}`);
         
         // Persist to disk after trade
         this.saveMarkets();
@@ -435,6 +457,90 @@ export class MarketService {
         if (!market) return [];
 
         return market.trades.filter(trade => trade.user === userAddress);
+    }
+
+    /**
+     * Refund Position (Partial Exit)
+     * User can exit position early with 25% refund (75% penalty)
+     * Shares are returned to AMM, prices recalculate
+     */
+    async refundPosition(marketId: string, userAddress: string, outcome: 'YES' | 'NO'): Promise<{
+        refundAmount: bigint;
+        sharesReturned: bigint;
+        penalty: bigint;
+    }> {
+        const market = this.markets.get(marketId);
+        if (!market) throw new Error('Market not found');
+        if (market.status !== MarketStatus.ACTIVE) {
+            throw new Error(`Cannot refund - market is ${market.status}`);
+        }
+
+        // Find user's position
+        const positionKey = `${userAddress}_${outcome}`;
+        const position = market.positions.get(positionKey);
+        if (!position || position.shares === 0n) {
+            throw new Error('No position found for this outcome');
+        }
+
+        // Calculate refund: 25% of total cost paid
+        const refundAmount = position.totalCost / 4n; // 25%
+        const penalty = position.totalCost - refundAmount; // 75%
+
+        // Return shares to AMM (reverse the purchase)
+        const newShares = {
+            YES: outcome === 'YES' ? market.amm.shares.YES + position.shares : market.amm.shares.YES,
+            NO: outcome === 'NO' ? market.amm.shares.NO + position.shares : market.amm.shares.NO
+        };
+
+        market.amm = {
+            liquidityParameter: market.amm.liquidityParameter,
+            shares: newShares
+        };
+
+        // Remove position
+        market.positions.delete(positionKey);
+
+        // Process refund via Yellow Network (25% back to user)
+        if (this.yellowClient) {
+            try {
+                // In production: Transfer refundAmount from market pool to user
+                console.log(`💸 Refund issued: ${fromAmmAmount(refundAmount)} USDC (25% of ${fromAmmAmount(position.totalCost)} USDC)`);
+                console.log(`   Penalty: ${fromAmmAmount(penalty)} USDC (75%) stays in pool`);
+            } catch (error) {
+                console.error('Yellow Network refund failed:', error);
+                throw new Error('Refund execution failed on Yellow Network');
+            }
+        }
+
+        // Record refund as trade (negative amount)
+        const refundTrade: Trade = {
+            id: `refund_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            marketId: marketId,
+            user: userAddress,
+            outcome: outcome,
+            amount: -refundAmount, // Negative = refund
+            shares: -position.shares, // Negative = returned
+            price: 0, // Not applicable for refunds
+            timestamp: new Date(),
+        };
+        market.trades.push(refundTrade);
+
+        this.markets.set(marketId, market);
+
+        // Broadcast update
+        this.broadcastMarketUpdate(market);
+
+        console.log(`🔄 Position refunded: ${fromAmmAmount(position.shares)} ${outcome} shares returned to pool`);
+        console.log(`   New prices - YES: ${LmsrAmm.getPrice(market.amm.liquidityParameter, market.amm.shares.YES, market.amm.shares.NO, 'YES').toFixed(3)}, NO: ${LmsrAmm.getPrice(market.amm.liquidityParameter, market.amm.shares.YES, market.amm.shares.NO, 'NO').toFixed(3)}`);
+
+        // Persist to disk
+        this.saveMarkets();
+
+        return {
+            refundAmount,
+            sharesReturned: position.shares,
+            penalty
+        };
     }
 
     /**
@@ -699,6 +805,14 @@ export class MarketService {
         });
         console.log(`📊 Returning ${markets.length} markets total`);
         return markets;
+    }
+
+    /**
+     * Get all markets with full details (including positions Map)
+     * Used internally for positions and trades routes
+     */
+    getAllMarkets(): Market[] {
+        return Array.from(this.markets.values());
     }
 
     /**

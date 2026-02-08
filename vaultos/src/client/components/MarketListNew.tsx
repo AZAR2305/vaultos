@@ -53,7 +53,7 @@ const MarketListNew: React.FC = () => {
   const loadMarkets = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:3000/api/market');
+      const response = await fetch('http://localhost:3002/api/market');
       if (response.ok) {
         const data = await response.json();
         setMarkets(data.markets || []);
@@ -100,7 +100,7 @@ const MarketListNew: React.FC = () => {
 
       console.log('Creating market:', marketData);
 
-      const response = await fetch('http://localhost:3000/api/market/create', {
+      const response = await fetch('http://localhost:3002/api/market/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(marketData),

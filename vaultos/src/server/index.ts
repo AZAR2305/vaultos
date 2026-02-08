@@ -11,6 +11,10 @@ import yellowRoutes from './routes/yellow';
 import positionsRoutes from './routes/positions';
 import tradesRoutes from './routes/trades';
 import { initializeCommunityChat } from './routes/community';
+import { ResolutionEngine } from '../oracle/ResolutionEngine';
+import { EthPriceOracle } from '../oracle/EthPriceOracle';
+import { OracleType } from '../oracle/OracleInterface';
+import MarketService from './services/MarketService';
 
 const app = express();
 const server = http.createServer(app);
@@ -64,6 +68,32 @@ server.listen(PORT, () => {
   console.log(`📊 Markets: LMSR AMM ready`);
   console.log(`⚠️  Using testnet - no real money`);
   console.log(`====================================\n`);
+  
+  // Initialize ETH Price Oracle for real-time market resolution
+  const oracleConfig = {
+    type: OracleType.CUSTOM,
+    network: 'base-sepolia',
+    updateInterval: 60
+  };
+  const ethOracle = new EthPriceOracle(oracleConfig);
+  
+  // Initialize Resolution Engine for automatic market resolution
+  const resolutionEngine = new ResolutionEngine(
+    ethOracle,
+    {
+      checkIntervalSeconds: 60,  // Check every minute
+      autoFreeze: true,           // Auto-freeze when endTime reached
+      autoResolve: true,          // Auto-resolve when funded
+      requireManualApproval: false // For demo - auto-resolve immediately
+    }
+  );
+  
+  resolutionEngine.start();
+  console.log('🎯 Resolution Engine started with ETH Price Oracle');
+  console.log('   ✅ Checking markets every 60 seconds');
+  console.log('   ✅ Auto-freezing when endTime reached');
+  console.log('   ✅ Auto-resolving with real ETH price data');
+  console.log('   📡 Oracle: CoinGecko API\n');
 });
 
 export default app;

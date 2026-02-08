@@ -126,9 +126,9 @@ export function MarketDetail() {
       } else {
         throw new Error('Failed to record bet');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error placing bet:', err);
-      alert(`Failed to place bet: ${err.message}`);
+      alert(`Failed to place bet: ${err?.message || 'Unknown error'}`);
     } finally {
       setPlacing(false);
     }
@@ -169,9 +169,9 @@ export function MarketDetail() {
       } else {
         throw new Error('Failed to process refund');
       }
-    } catch (err) {
-      console.error('Error processing refund:', err);
-      alert(`Failed to refund: ${err.message}`);
+    } catch (err: any) {
+      console.error('Error requesting refund:', err);
+      alert(`Failed to refund: ${err?.message || 'Unknown error'}`);
     } finally {
       setRefunding(false);
     }

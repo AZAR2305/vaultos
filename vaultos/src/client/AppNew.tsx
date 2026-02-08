@@ -11,7 +11,7 @@ const AppNew = () => {
   return (
     <div className="app">
       <header className="header">
-        <h1>🚀 VaultOS Prediction Market</h1>
+        <h1>🚀 Bettify Prediction Market</h1>
         <p className="subtitle">Instant trading with Yellow Network state channels</p>
       </header>
 
@@ -47,7 +47,7 @@ const AppNew = () => {
           <div className="content">
             {currentView === 'home' && (
               <div className="home">
-                <h2>Welcome to VaultOS!</h2>
+                <h2>Welcome to Bettify!</h2>
                 <div className="features">
                   <div className="feature-card">
                     <h3>⚡ Instant Trading</h3>
