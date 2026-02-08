@@ -7,8 +7,15 @@
  * Uses MetaMask to sign authentication messages (no server private key needed)
  */
 import React, { useState, useEffect } from 'react';
-import { useAccount, useSignTypedData } from 'wagmi';
+import { useAccount, useSignTypedData, useWalletClient } from 'wagmi';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
+import { 
+  createECDSAMessageSigner,
+  createAuthRequestMessage,
+  createEIP712AuthMessageSigner,
+  createAuthVerifyMessageFromChallenge,
+  createGetLedgerBalancesMessage,
+} from '@erc7824/nitrolite';
 import { API_URL } from '../config/api';
 
 interface Session {
@@ -25,7 +32,7 @@ interface SessionManagerProps {
 
 const SessionManager: React.FC<SessionManagerProps> = ({ onSessionChange }) => {
   const { address, isConnected } = useAccount();
-  const { signTypedDataAsync } = useSignTypedData();
+  const { data: walletClient } = useWalletClient();
   const [session, setSession] = useState<Session | null>(null);
   const [depositAmount, setDepositAmount] = useState<string>('1000');
   const [loading, setLoading] = useState(false);
@@ -50,7 +57,7 @@ const SessionManager: React.FC<SessionManagerProps> = ({ onSessionChange }) => {
   }, [address]);
 
   const createSession = async () => {
-    if (!address) {
+    if (!address || !walletClient) {
       alert('Please connect your wallet first');
       return;
     }
@@ -63,6 +70,7 @@ const SessionManager: React.FC<SessionManagerProps> = ({ onSessionChange }) => {
       setStatusMessage('🔑 Generating session key...');
       const sessionPrivateKey = generatePrivateKey();
       const sessionAccount = privateKeyToAccount(sessionPrivateKey);
+      const sessionSigner = createECDSAMessageSigner(sessionPrivateKey);
       console.log('✅ Session key generated:', sessionAccount.address);
       
       // Step 2: Connect to Yellow Network WebSocket
@@ -82,35 +90,22 @@ const SessionManager: React.FC<SessionManagerProps> = ({ onSessionChange }) => {
         setTimeout(() => reject(new Error('Connection timeout')), 10000);
       });
       
-      // Step 3: Create properly signed auth request message
-      setStatusMessage('📤 Preparing authentication request...');
-      const expiresAt = Math.floor(Date.now() / 1000) + 3600; // 1 hour
-      
-      // Sign the auth request with session key
+      // Step 3: Send auth request using Nitrolite SDK
+      setStatusMessage('📤 Sending authentication request...');
+      const expiresAt = BigInt(Math.floor(Date.now() / 1000) + 3600); // 1 hour
       const authParams = {
-        address: address.toLowerCase(),
-        application: 'Yellow',  // Must match EIP-712 domain name
-        session_key: sessionAccount.address.toLowerCase(),
+        address: address.toLowerCase() as `0x${string}`,
+        application: 'Yellow',
+        session_key: sessionAccount.address.toLowerCase() as `0x${string}`,
         allowances: [{ asset: 'ytest.usd', amount: '1000000000' }],
         expires_at: expiresAt,
         scope: 'bettify.trading',
       };
       
-      // Create message to sign
-      const messageId = Date.now();
-      const authMessage = JSON.stringify([messageId, 'auth_request', authParams, messageId]);
-      
-      // Sign with session private key
-      const signature = await sessionAccount.signMessage({ message: authMessage });
-      
-      // Send signed message to Yellow Network
-      const signedAuthRequest = {
-        res: [messageId, 'auth_request', authParams, messageId],
-        sig: [signature]
-      };
-      
-      websocket.send(JSON.stringify(signedAuthRequest));
-      console.log('✅ Signed auth request sent');
+      // Create properly formatted auth request message
+      const authRequestMsg = await createAuthRequestMessage(authParams);
+      websocket.send(authRequestMsg);
+      console.log('✅ Auth request sent via Nitrolite SDK');
       
       // Step 4: Wait for auth challenge and sign with MetaMask
       setStatusMessage('⏳ Waiting for authentication challenge...');
@@ -146,60 +141,31 @@ const SessionManager: React.FC<SessionManagerProps> = ({ onSessionChange }) => {
               return;
             }
             
-            // Step 4a: Handle auth_challenge - sign with MetaMask
+            // Step 4a: Handle auth_challenge - sign with MetaMask using Nitrolite
             if (messageType === 'auth_challenge' && !authVerified) {
               setStatusMessage('🔏 Please sign with MetaMask...');
               const challenge = messageData.challenge_message;
               console.log('🔐 Auth challenge received:', challenge);
               console.log('🔐 Session key:', sessionAccount.address);
               
-              // EIP-712 signature with MetaMask - must match Yellow Network's exact format
-              const signature = await signTypedDataAsync({
-                domain: {
-                  name: 'Yellow',
-                },
-                types: {
-                  AuthMessage: [
-                    { name: 'session_key', type: 'address' },
-                    { name: 'allowances', type: 'Allowance[]' },
-                    { name: 'expires_at', type: 'uint64' },
-                    { name: 'scope', type: 'string' },
-                    { name: 'nonce', type: 'uint64' },
-                  ],
-                  Allowance: [
-                    { name: 'asset', type: 'string' },
-                    { name: 'amount', type: 'string' },
-                  ],
-                },
-                primaryType: 'AuthMessage',
-                message: {
-                  session_key: sessionAccount.address as `0x${string}`,
-                  allowances: [{ asset: 'ytest.usd', amount: '1000000000' }],
-                  expires_at: BigInt(expiresAt),
-                  scope: 'bettify.trading',
-                  nonce: BigInt(challenge),
-                },
-              });
-              
-              console.log('✅ Signature obtained from MetaMask');
-              setStatusMessage('📤 Verifying signature...');
-              
-              // Send auth_verify with session signature
-              const verifyId = Date.now();
-              const verifyParams = {
-                challenge_message: challenge,
-                signature: signature,
-              };
-              const verifyMessage = JSON.stringify([verifyId, 'auth_verify', verifyParams, verifyId]);
-              const verifySignature = await sessionAccount.signMessage({ message: verifyMessage });
-              
-              const signedAuthVerify = {
-                res: [verifyId, 'auth_verify', verifyParams, verifyId],
-                sig: [verifySignature]
+              // Create EIP-712 signer with user's wallet
+              const authParamsForSigning = {
+                session_key: sessionAccount.address,
+                allowances: [{ asset: 'ytest.usd', amount: '1000000000' }],
+                expires_at: expiresAt,
+                scope: 'bettify.trading',
               };
               
-              websocket!.send(JSON.stringify(signedAuthVerify));
-              console.log('✅ Signature sent for verification');
+              const signer = createEIP712AuthMessageSigner(
+                walletClient,
+                authParamsForSigning,
+                { name: 'Yellow' }
+              );
+              
+              // Create and send auth_verify message
+              const verifyMsg = await createAuthVerifyMessageFromChallenge(signer, challenge);
+              websocket!.send(verifyMsg);
+              console.log('✅ Auth verify sent via Nitrolite SDK');
             }
             
             // Step 4b: Handle auth_verify success - request ledger balances
@@ -208,21 +174,15 @@ const SessionManager: React.FC<SessionManagerProps> = ({ onSessionChange }) => {
               console.log('✅ Authentication successful!');
               setStatusMessage('📤 Requesting ledger balances...');
               
-              // Request ledger balances with session signature
-              const balanceId = Date.now();
-              const balanceParams = {
-                address: address.toLowerCase(),
-              };
-              const balanceMessage = JSON.stringify([balanceId, 'get_ledger_balances', balanceParams, balanceId]);
-              const balanceSignature = await sessionAccount.signMessage({ message: balanceMessage });
+              // Request ledger balances using Nitrolite SDK
+              const ledgerMsg = await createGetLedgerBalancesMessage(
+                sessionSigner,
+                address.toLowerCase() as `0x${string}`,
+                Date.now()
+              );
               
-              const signedBalanceRequest = {
-                res: [balanceId, 'get_ledger_balances', balanceParams, balanceId],
-                sig: [balanceSignature]
-              };
-              
-              websocket!.send(JSON.stringify(signedBalanceRequest));
-              console.log('✅ Ledger balance request sent');
+              websocket!.send(ledgerMsg);
+              console.log('✅ Ledger balance request sent via Nitrolite SDK');
             }
             
             // Step 4c: Handle get_ledger_balances response - complete authentication
