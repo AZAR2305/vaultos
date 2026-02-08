@@ -106,24 +106,29 @@ const SessionManager: React.FC<SessionManagerProps> = ({ onSessionChange }) => {
       setStatusMessage('⏳ Waiting for authentication challenge...');
       const channelId = await new Promise<string>((resolve, reject) => {
         let authVerified = false;
+        let balancesReceived = false;
         
         websocket!.onmessage = async (event) => {
           try {
             const response = JSON.parse(event.data);
-            console.log('📨 Yellow Network message:', response);
             
-            if (response.error) {
-              console.error('❌ Yellow Network error:', response.error);
-              reject(new Error(response.error.message || 'Authentication failed'));
+            // Yellow Network uses 'res' array: [id, messageType, data, timestamp]
+            const messageType = response.res?.[1];
+            const messageData = response.res?.[2];
+            
+            console.log('📨 Yellow Network message:', messageType, messageData);
+            
+            // Check for error responses
+            if (messageType === 'error') {
+              console.error('❌ Yellow Network error:', messageData);
+              reject(new Error(messageData?.message || JSON.stringify(messageData) || 'Authentication failed'));
               return;
             }
             
-            const messageType = response.result?.[1];
-            
-            // Handle auth challenge - sign with MetaMask
-            if (messageType === 'auth_challenge') {
+            // Step 4a: Handle auth_challenge - sign with MetaMask
+            if (messageType === 'auth_challenge' && !authVerified) {
               setStatusMessage('🔏 Please sign with MetaMask...');
-              const challenge = response.result[2].challenge_message;
+              const challenge = messageData.challenge_message;
               console.log('🔐 Auth challenge received:', challenge);
               console.log('🔐 Session key:', sessionAccount.address);
               
@@ -158,7 +163,7 @@ const SessionManager: React.FC<SessionManagerProps> = ({ onSessionChange }) => {
               console.log('✅ Signature obtained from MetaMask');
               setStatusMessage('📤 Verifying signature...');
               
-              // Send auth verify
+              // Send auth_verify
               const authVerify = {
                 jsonrpc: '2.0',
                 id: Date.now(),
@@ -173,17 +178,46 @@ const SessionManager: React.FC<SessionManagerProps> = ({ onSessionChange }) => {
               console.log('✅ Signature sent for verification');
             }
             
-            // Handle auth verify success
+            // Step 4b: Handle auth_verify success - request ledger balances
             if (messageType === 'auth_verify' && !authVerified) {
               authVerified = true;
               console.log('✅ Authentication successful!');
-              setStatusMessage('✅ Authenticated! Creating channel...');
+              setStatusMessage('📤 Requesting ledger balances...');
               
-              // Create a simple session ID (no actual channel creation for now)
+              // Request ledger balances using correct Yellow Network format
+              const ledgerRequest = {
+                jsonrpc: '2.0',
+                id: Date.now(),
+                method: 'get_ledger_balances',
+                params: {
+                  address: address.toLowerCase(),
+                },
+              };
+              
+              websocket!.send(JSON.stringify(ledgerRequest));
+              console.log('✅ Ledger balance request sent');
+            }
+            
+            // Step 4c: Handle get_ledger_balances response - complete authentication
+            if (messageType === 'get_ledger_balances' && authVerified && !balancesReceived) {
+              balancesReceived = true;
+              const balances = messageData?.ledger_balances || [];
+              console.log('✅ Ledger balances received:', balances);
+              
+              // Find ytest.usd balance
+              const usdBalance = balances.find((b: any) => b.asset === 'ytest.usd');
+              const balance = usdBalance ? parseFloat(usdBalance.amount) / 1000000 : 0;
+              
+              console.log(`💰 Balance: ${balance.toFixed(2)} ytest.usd`);
+              setStatusMessage('✅ Authenticated! Session ready.');
+              
+              // Create session ID and save
               const sessionId = `session_${address}_${Date.now()}`;
-              const mockChannelId = `yellow_channel_${Math.random().toString(36).substr(2, 9)}`;
+              const mockChannelId = `yellow_authenticated_${Date.now()}`;
               
               console.log('✅ Session created:', sessionId);
+              console.log('✅ Balance:', balance, 'ytest.usd');
+              
               resolve(mockChannelId);
             }
           } catch (error: any) {
@@ -192,7 +226,7 @@ const SessionManager: React.FC<SessionManagerProps> = ({ onSessionChange }) => {
           }
         };
         
-        setTimeout(() => reject(new Error('Authentication timeout')), 60000);
+        setTimeout(() => reject(new Error('Authentication timeout - Yellow Network did not respond in 60 seconds')), 60000);
       });
       
       // Step 5: Save session
