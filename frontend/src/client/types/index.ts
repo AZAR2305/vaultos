@@ -8,10 +8,22 @@ export interface Market {
   id: string;
   question: string;
   description: string;
-  durationMinutes: number;
+  durationMinutes?: number;
   yesPrice: number;
   noPrice: number;
   createdAt: Date;
+  endTime?: number;
+  status?: string;
+  totalPool?: number;
+  yesPool?: number;
+  noPool?: number;
+  amm?: {
+    liquidity: number;
+    shares: {
+      YES: number;
+      NO: number;
+    };
+  };
 }
 
 export interface Trade {

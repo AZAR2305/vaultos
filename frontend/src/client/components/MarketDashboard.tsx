@@ -10,6 +10,9 @@ interface Market {
   endTime: number;
   totalVolume: string;
   channelId: string;
+  totalPool?: number;
+  yesPool?: number;
+  noPool?: number;
   odds: {
     YES: string;
     NO: string;
@@ -607,7 +610,6 @@ const MarketDashboard: React.FC = () => {
               ⚠️ Please create a Yellow Network session first (see sidebar)
             </p>
           )}
-        </div>
       </div>
 
       <h3>📊 Active Markets</h3>

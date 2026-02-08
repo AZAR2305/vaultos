@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useAccount, useConnect, useDisconnect } from 'wagmi';
 import { injected } from 'wagmi/connectors';
 import YellowConnect from './components/YellowConnect';
-import MarketList from './components/MarketList';
-import TradePanel from './components/TradePanel';
+import MarketListNew from './components/MarketListNew';
+import TradePanelNew from './components/TradePanelNew';
 import AdminPanel from './components/AdminPanel';
 import './styles/theme.css';
 
